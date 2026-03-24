@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build: .
+    container_name: ppe-backend
+    ports:
+      - "8000:8000"
+    restart: always
+    volumes:
+      - ./weights:/app/weights   # ensure model is available
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui   # 👈 better approach
+    container_name: ppe-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always

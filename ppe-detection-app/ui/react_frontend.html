@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPE Detection - React Lite</title>
+    <!-- Load React, ReactDOM, and Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Modern Styling -->
+    <style>
+        :root {
+            --primary: #6366f1;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #1e293b;
+        }
+
+        .upload-box {
+            border: 2px dashed #cbd5e1;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+        }
+
+        .upload-box:hover {
+            border-color: var(--primary);
+            background: #f1f5f9;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.info {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .loading {
+            text-align: center;
+            color: #64748b;
+            margin-top: 1rem;
+            font-style: italic;
+        }
+
+        .result-container {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .media-preview {
+            width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: #000;
+        }
+
+        pre {
+            background: #f1f5f9;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            max-height: 300px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function App() {
+            const [file, setFile] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+
+            const handleFileChange = (e) => {
+                const selectedFile = e.target.files[0];
+                if (selectedFile) {
+                    setFile(selectedFile);
+                    handleUpload(selectedFile);
+                }
+            };
+
+            const handleUpload = async (selectedFile) => {
+                setLoading(true);
+                setResult(null);
+                setError(null);
+
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                try {
+                    const response = await fetch('http://localhost:8000/predict', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        setResult(data);
+                    } else {
+                        setError(`API Error: ${response.status}`);
+                    }
+                } catch (err) {
+                    setError(`Connection Error: ${err.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>PPE Safety Dashboard</h1>
+
+                    <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
+                        {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
+                        <input
+                            id="file-input"
+                            type="file"
+                            style={{ display: 'none' }}
+                            onChange={handleFileChange}
+                            accept="image/*,video/mp4"
+                        />
+                    </div>
+
+                    {loading && <div className="loading">Initiating real-time processing stream...</div>}
+
+                    {error && <div className="status danger">Error: {error}</div>}
+
+                    {result && (
+                        <div className="result-container">
+                            {/* Static status for images, dynamic for videos (via video feed) */}
+                            {result.type === 'image' && (
+                                <div className={`status ${result.violations_detected ? 'danger' : 'success'}`}>
+                                    {result.violations_detected ? '🚨 SAFETY VIOLATION DETECTED!' : '✅ ALL CLEAR: NO VIOLATIONS'}
+                                </div>
+                            )}
+
+                            {result.type === 'video' && (
+                                <div className="status info">
+                                    🎥 LIVE REAL-TIME PROCESSING: REPORTING EVERY 5 FRAMES
+                                </div>
+                            )}
+
+                            <div className="stats">
+                                <div className="stat-card">
+                                    <div className="stat-label">File Type</div>
+                                    <div className="stat-value">{result.type.toUpperCase()}</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-label">Mode</div>
+                                    <div className="stat-value">{result.stream_url ? 'LIVE STREAM' : 'STATIC'}</div>
+                                </div>
+                            </div>
+
+                            {result.type === 'image' && result.processed_image && (
+                                <div>
+                                    <h3>Processed Image</h3>
+                                    <img src={result.processed_image} className="media-preview" alt="Result" />
+                                </div>
+                            )}
+
+                            {result.type === 'video' && result.stream_url && (
+                                <div>
+                                    <h3>Real-Time Processing Stream</h3>
+                                    <img 
+                                        key={result.stream_url} 
+                                        src={result.stream_url} 
+                                        className="media-preview" 
+                                        alt="Processing Stream" 
+                                    />
+                                    <p style={{fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
+                                        Safety status is drawn directly on the frames above in real-time.
+                                    </p>
+                                </div>
+                            )}
+
+                            <h3>Technical Context</h3>
+                            <pre>{JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

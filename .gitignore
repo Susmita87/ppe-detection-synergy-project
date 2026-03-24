@@ -1,0 +1,21 @@
+# Virtual Environments
+venv/
+**/venv/
+
+# Data files (exclude contents but keep folder)
+data/*
+**/data/*
+!**/data/.gitkeep
+
+# Python cache
+__pycache__/
+**/*.pyc
+
+# Local environment and logs
+*.log
+.env
+**/temp_uploads/*.mp4
+**/static_results/*.mp4
+
+# OS files
+.DS_Store
