@@ -133,6 +133,30 @@
             font-weight: bold;
             color: var(--primary);
         }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: #1e293b;
+        }
+
+        .tab.active {
+            color: #6366f1;
+            border-bottom: 3px solid #6366f1;
+        }
     </style>
 </head>
 
@@ -140,14 +164,29 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useRef, useEffect } = React;
 
         function App() {
+            // Add Tab
+            const [activeTab, setActiveTab] = useState("upload");
+
+            // File upload state
             const [file, setFile] = useState(null);
             const [loading, setLoading] = useState(false);
             const [result, setResult] = useState(null);
             const [error, setError] = useState(null);
 
+            // Add camera state for live video feed
+            const videoRef = React.useRef(null);
+            const canvasRef = React.useRef(null);
+            const [cameraActive, setCameraActive] = useState(false);
+            const [cameraOn, setCameraOn] = useState(false);
+            
+            // Add continuous capture state for real-time processing loop
+            const [continuousMode, setContinuousMode] = useState(false);
+            const intervalRef = React.useRef(null);
+
+            // ----------------- Upload -----------------------------
             const handleFileChange = (e) => {
                 const selectedFile = e.target.files[0];
                 if (selectedFile) {
@@ -182,21 +221,230 @@
                     setLoading(false);
                 }
             };
+            // -----------------End Upload -------------------------
+            // ----------------- Camera & Real-Time -----------------
+            // Start camera and stream to video element
+            const startCamera = async () => {
+                console.log("Attempting to start camera...");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        setCameraActive(true);
+                        setCameraOn(true);
+                    }
+                } catch (err) {
+                    setError(`Camera Error: ${err.message}`);
+                }
+            };
 
+            // Stop camera and clean up resources
+            const stopCamera = () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const tracks = videoRef.current.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    videoRef.current.srcObject = null;
+                    setCameraActive(false);
+                }
+                stopContinuousCapture(); // Ensure continuous capture is stopped                
+                setCameraOn(false);
+                setResult(null);
+            };
+
+            // Start continuous capture loop for real-time processing
+            const startContinuousCapture = () => {
+                if (intervalRef.current) return; // avoid multiple loops
+
+                setContinuousMode(true);
+
+                intervalRef.current = setInterval(() => {
+                    captureAndSend();
+                }, 2000); // every 2 seconds
+            };
+
+            const stopContinuousCapture = () => {
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                }
+                setContinuousMode(false);
+            };
+
+            // Capture frames from video and send to API for real-time processing
+            const captureAndSend = async () => {
+            if (!videoRef.current || !canvasRef.current) return;
+
+            const canvas = canvasRef.current;
+            const video = videoRef.current;
+
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const blob = await new Promise((resolve) =>
+                canvas.toBlob(resolve, "image/jpeg")
+            );
+
+            const formData = new FormData();
+            formData.append("file", blob, "frame.jpg");
+
+            try {
+                const response = await fetch("http://localhost:8000/predict", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+                console.log("Detection result:", data);
+
+                setResult(data); // show in UI
+            } catch (err) {
+                console.error("Error sending frame:", err);
+            }
+        };
+
+            
+            // ------------------End Camera & Real-Time -----------------
+
+            // ------------------ Main UI Render -----------------
+            
             return (
                 <div className="container">
                     <h1>PPE Safety Dashboard</h1>
 
-                    <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
-                        {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
-                        <input
-                            id="file-input"
-                            type="file"
-                            style={{ display: 'none' }}
-                            onChange={handleFileChange}
-                            accept="image/*,video/mp4"
-                        />
-                    </div>
+                    {/* Tabs */}
+                    <div className="tabs">
+                        <div
+                            className={`tab ${activeTab === "upload" ? "active" : ""}`}
+                            onClick={() => {
+                                setActiveTab("upload");
+                                setResult(null);
+                                setError(null);
+                                stopCamera(); // Ensure camera is stopped when switching to upload
+
+                                stopContinuousCapture(); // Ensure continuous capture is stopped when switching tabs
+                            }}
+                        >
+                            Upload
+                        </div>
+
+                        <div
+                            className={`tab ${activeTab === "camera" ? "active" : ""}`}
+                            onClick={() => {
+                                setActiveTab("camera");
+                                setResult(null);
+                                setError(null);
+                            }}
+                        >
+                            Camera
+                        </div>
+                    </div>                    
+
+                    {/* Upload Box */}
+                    { activeTab === "upload" && (
+                        <>
+                            <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
+                                {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
+                                <input
+                                    id="file-input"
+                                    type="file"
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileChange}
+                                    accept="image/*,video/mp4"
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Camera UI */}
+                    { activeTab === "camera" && (
+                        <>
+                            <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
+
+                                {/* VIDEO BOX */}
+                                <div style={{
+                                    width: "100%",
+                                    maxWidth: "500px",
+                                    height: "350px",
+                                    margin: "0 auto",
+                                    borderRadius: "10px",
+                                    overflow: "hidden",
+                                    background: "#000",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}>
+
+                                    {/* VIDEO */}
+                                    <video
+                                        ref={videoRef}
+                                        autoPlay
+                                        playsInline
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            display: cameraOn ? "block" : "none"
+                                        }}
+                                    />
+
+                                    {/* Placeholder when camera is OFF */}
+                                    {!cameraOn && (
+                                        <span style={{ color: "#aaa" }}>
+                                            Camera is OFF
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* BUTTONS */}
+                                <div style={{ marginTop: "10px" }}>
+                                    {!cameraOn ? (
+                                        <button onClick={startCamera}>
+                                            Start Camera
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button onClick={captureAndSend}>
+                                                Capture & Detect
+                                            </button>
+
+                                            {!continuousMode ? (
+                                                <button
+                                                    onClick={startContinuousCapture}
+                                                    style={{ marginLeft: "10px" }}
+                                                >
+                                                    Start Continuous
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={stopContinuousCapture}
+                                                    style={{ marginLeft: "10px", background: "#ef4444", color: "#fff" }}
+                                                >
+                                                    Stop Continuous
+                                                </button>
+                                            )}
+
+                                            <button
+                                                onClick={stopCamera}
+                                                style={{ marginLeft: "10px" }}
+                                            >
+                                                Stop Camera
+                                            </button>                                            
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Hidden canvas */}
+                                <canvas ref={canvasRef} style={{ display: "none" }} />
+                            </div>
+                            </>
+                    )}
+                    
+
+                    {/* ------ RESULTS & STATUS ------ */}
 
                     {loading && <div className="loading">Initiating real-time processing stream...</div>}
 
