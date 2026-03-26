@@ -2,6 +2,7 @@ FROM nginx:alpine
 
 # Copy the react frontend into the default nginx path
 COPY ui/react_frontend.html /usr/share/nginx/html/index.html
+COPY ui/react_frontend.html /usr/share/nginx/html/react_frontend.html
 
 # Expose port 80 (standard for nginx)
 EXPOSE 80
