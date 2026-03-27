@@ -6,7 +6,6 @@ import os
 
 # 🔹 CONFIG (move to env later)
 SENDER_EMAIL = os.getenv("EMAIL_USER")
-#APP_PASSWORD = "fktc qjan umhs gerw"
 SENDER_EMAIL = os.getenv("EMAIL_PASS")
 RECEIVER_EMAIL = os.getenv("EMAIL_TO")
 
