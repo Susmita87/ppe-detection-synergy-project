@@ -9,6 +9,7 @@ import uuid
 import base64
 import time
 from app.inference import predict
+from app.email_utils import send_email_alert
 
 app = FastAPI(title="PPE Detection API")
 
@@ -98,6 +99,11 @@ def gen_frames(video_path):
     current_status = "SAFE"
     status_color = (0, 255, 0)
 
+    violation_start_time = None
+    last_email_time = 0
+    EMAIL_COOLDOWN = 60 #seconds (Min time between 2 emails)
+    VIOLATION_THRESHOLD = 10 # seconds (Time duration of violation)
+
     if not cap.isOpened():
         return
 
@@ -105,6 +111,8 @@ def gen_frames(video_path):
         success, frame = cap.read()
         if not success:
             break
+
+        current_time = time.time()
         
         # 🔹 Inference every 5th frame as requested
         if frame_count % 5 == 0:
@@ -113,9 +121,34 @@ def gen_frames(video_path):
             
             # Update status for this window
             if result["violations_detected"]:
-                current_status = "VIOLATION DETECTED"
-                status_color = (0, 0, 255)
+                # 🔹 Start timer if first detection
+                if violation_start_time is None:
+                    violation_start_time = current_time
+                    email_sent_for_violation = False
+
+                # 🔹 Check if violation persists long enough
+                elif current_time - violation_start_time >= VIOLATION_THRESHOLD:
+                    current_status = "VIOLATION DETECTED"
+                    status_color = (0, 0, 255)
+                
+                    # 🔥 Send email once per violation
+                    #if current_time - last_email_time > EMAIL_COOLDOWN:
+                    if not email_sent_for_violation:
+                        #print("🚨 Email function triggered")
+                        #send_email_alert(frame)
+                        print("🚨 Sending email alert...")
+                        send_email_alert(frame)
+                        email_sent_for_violation = True
+                        #last_email_time = current_time
+
+                else:
+                    current_status = "MONITORING..."
+                    status_color = (0, 165, 255)  # orange
+
             else:
+                # 🔹 Reset if no violation
+                violation_start_time = None
+                email_sent_for_violation = False
                 current_status = "SAFE"
                 status_color = (0, 255, 0)
             
