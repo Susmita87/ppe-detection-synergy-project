@@ -6,7 +6,7 @@ import os
 
 # 🔹 CONFIG (move to env later)
 SENDER_EMAIL = os.getenv("EMAIL_USER")
-SENDER_EMAIL = os.getenv("EMAIL_PASS")
+APP_PASSWORD = os.getenv("EMAIL_PASS")
 RECEIVER_EMAIL = os.getenv("EMAIL_TO")
 
 def send_email_alert(frame):
