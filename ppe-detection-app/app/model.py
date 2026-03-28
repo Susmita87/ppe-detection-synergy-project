@@ -1,5 +1,5 @@
 from ultralytics import YOLO
 
-MODEL_PATH = "weights/best-v1.pt"
+MODEL_PATH = "weights/best.pt"
 
 model = YOLO(MODEL_PATH)
