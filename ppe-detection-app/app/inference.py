@@ -44,13 +44,14 @@ def predict(image):
     people = []
     gear = []
     explicit_violations = []
-
+    
     for r in results:
         for box in r.boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
 
             if conf < CONF_THRESHOLD:
+                print(f"Skipping {CLASS_NAMES.get(cls_id, 'class '+str(cls_id))} with confidence {conf:.3f}")
                 continue
 
             bbox = box.xyxy[0].tolist()
@@ -96,6 +97,7 @@ def predict(image):
 
     # 🔹 Final Violation Logic
     violation_detected = any_person_missing_gear or len(explicit_violations) > 0
+    # violation_detected = any_person_missing_gear
 
     # Clean up bboxes in response to match expected output format
     for d in detections:

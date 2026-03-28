@@ -10,6 +10,9 @@ import base64
 import time
 from app.inference import predict
 from app.email_utils import send_email_alert
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="PPE Detection API")
 
@@ -79,10 +82,15 @@ async def process_image(file: UploadFile):
     result = predict(img)
     
     # 🔹 Draw detections on the image
-    processed_img = draw_detections(img, result["detections"])
+    img = draw_detections(img, result["detections"])
+
+    # 🔹 Send email if violation detected in image
+    if result["violations_detected"]:
+        print("🚨 Sending email alert for image violation...")
+        send_email_alert(img)
 
     # 🔹 Encode into base64 for direct return
-    _, buffer = cv2.imencode('.jpg', processed_img)
+    _, buffer = cv2.imencode('.jpg', img)
     img_base64 = base64.b64encode(buffer).decode('utf-8')
 
     return {
@@ -102,7 +110,7 @@ def gen_frames(video_path):
     violation_start_time = None
     last_email_time = 0
     EMAIL_COOLDOWN = 60 #seconds (Min time between 2 emails)
-    VIOLATION_THRESHOLD = 10 # seconds (Time duration of violation)
+    VIOLATION_THRESHOLD = 0.1 # Real-time duration for test
 
     if not cap.isOpened():
         return
@@ -126,18 +134,19 @@ def gen_frames(video_path):
                     violation_start_time = current_time
                     email_sent_for_violation = False
 
-                # 🔹 Check if violation persists long enough
+                # 🔹 Check if violation persists long enough (Lowered for local debugging)
                 elif current_time - violation_start_time >= VIOLATION_THRESHOLD:
+                    #print(f"Elapsed: {current_time - violation_start_time:.3f}s")
                     current_status = "VIOLATION DETECTED"
                     status_color = (0, 0, 255)
                 
                     # 🔥 Send email once per violation
                     #if current_time - last_email_time > EMAIL_COOLDOWN:
                     if not email_sent_for_violation:
-                        #print("🚨 Email function triggered")
-                        #send_email_alert(frame)
+                        # 🔹 Draw detections first for the email
+                        drawn_frame = draw_detections(frame.copy(), current_detections)
                         print("🚨 Sending email alert...")
-                        send_email_alert(frame)
+                        send_email_alert(drawn_frame)
                         email_sent_for_violation = True
                         #last_email_time = current_time
 

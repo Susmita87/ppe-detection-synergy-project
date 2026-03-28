@@ -13,6 +13,10 @@ echo "Installing dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# Cleanup existing processes on ports 8000 and 3000
+echo "Clearing ports 8000 and 3000..."
+lsof -ti :8000,3000 | xargs kill -9 2>/dev/null
+
 # Create temp uploads directory if not exists
 mkdir -p temp_uploads
 
