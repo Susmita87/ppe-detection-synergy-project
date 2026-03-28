@@ -110,7 +110,7 @@ def gen_frames(video_path):
     violation_start_time = None
     last_email_time = 0
     EMAIL_COOLDOWN = 60 #seconds (Min time between 2 emails)
-    VIOLATION_THRESHOLD = 0.1 # Real-time duration for test
+    VIOLATION_THRESHOLD = 0.2 # Real-time duration for test
 
     if not cap.isOpened():
         return
