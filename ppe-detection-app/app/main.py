@@ -16,12 +16,12 @@ load_dotenv()
 
 app = FastAPI(title="PPE Detection API")
 
-# 🔹 Mount static directory for processed results (preserved for images)
+# Mount static directory for processed results (preserved for images)
 STATIC_DIR = "static_results"
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/results", StaticFiles(directory=STATIC_DIR), name="results")
 
-# 🔹 CORS Middleware
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,7 +34,7 @@ UPLOAD_DIR = "temp_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-# 🔹 Helper: Draw bounding boxes on frame
+# Helper: Draw bounding boxes on frame
 def draw_detections(img, detections):
     for det in detections:
         bbox = det["bbox"]
@@ -45,23 +45,23 @@ def draw_detections(img, detections):
         color = (0, 0, 255) if is_violation else (0, 255, 0)
         label = f"{class_name} ({confidence})"
 
-        # 🔹 Draw box
+        # Draw box
         p1 = (int(bbox["x1"]), int(bbox["y1"]))
         p2 = (int(bbox["x2"]), int(bbox["y2"]))
         cv2.rectangle(img, p1, p2, color, 2)
 
-        # 🔹 Draw background for text
+        # Draw background for text
         text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         text_w, text_h = text_size
         cv2.rectangle(img, p1, (p1[0] + text_w, p1[1] - text_h - 10), color, -1)
 
-        # 🔹 Draw text
+        # Draw text
         cv2.putText(img, label, (p1[0], p1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
     return img
 
 
-# 🔹 Helper: Check file type
+# Helper: Check file type
 def is_image(filename):
     return filename.lower().endswith((".jpg", ".jpeg", ".png"))
 
@@ -70,7 +70,7 @@ def is_video(filename):
     return filename.lower().endswith((".mp4", ".avi", ".mov"))
 
 
-# 🔹 Image Processing
+# Image Processing
 async def process_image(file: UploadFile):
     image_bytes = await file.read()
     np_arr = np.frombuffer(image_bytes, np.uint8)
@@ -81,15 +81,15 @@ async def process_image(file: UploadFile):
 
     result = predict(img)
     
-    # 🔹 Draw detections on the image
+    #  Draw detections on the image
     img = draw_detections(img, result["detections"])
 
-    # 🔹 Send email if violation detected in image
+    #  Send email if violation detected in image
     if result["violations_detected"]:
-        print("🚨 Sending email alert for image violation...")
+        print("Sending email alert for image violation...")
         send_email_alert(img)
 
-    # 🔹 Encode into base64 for direct return
+    #  Encode into base64 for direct return
     _, buffer = cv2.imencode('.jpg', img)
     img_base64 = base64.b64encode(buffer).decode('utf-8')
 
@@ -99,7 +99,7 @@ async def process_image(file: UploadFile):
     }
 
 
-# 🔹 Video Stream Generator
+#  Video Stream Generator
 def gen_frames(video_path):
     cap = cv2.VideoCapture(video_path)
     frame_count = 0
@@ -122,30 +122,30 @@ def gen_frames(video_path):
 
         current_time = time.time()
         
-        # 🔹 Inference every 5th frame as requested
+        #  Inference every 5th frame as requested
         if frame_count % 5 == 0:
             result = predict(frame)
             current_detections = result["detections"]
             
             # Update status for this window
             if result["violations_detected"]:
-                # 🔹 Start timer if first detection
+                #  Start timer if first detection
                 if violation_start_time is None:
                     violation_start_time = current_time
                     email_sent_for_violation = False
 
-                # 🔹 Check if violation persists long enough (Lowered for local debugging)
+                #  Check if violation persists long enough (Lowered for local debugging)
                 elif current_time - violation_start_time >= VIOLATION_THRESHOLD:
                     #print(f"Elapsed: {current_time - violation_start_time:.3f}s")
                     current_status = "VIOLATION DETECTED"
                     status_color = (0, 0, 255)
                 
-                    # 🔥 Send email once per violation
+                    # Send email once per violation
                     #if current_time - last_email_time > EMAIL_COOLDOWN:
                     if not email_sent_for_violation:
-                        # 🔹 Draw detections first for the email
+                        #  Draw detections first for the email
                         drawn_frame = draw_detections(frame.copy(), current_detections)
-                        print("🚨 Sending email alert...")
+                        print("Sending email alert...")
                         send_email_alert(drawn_frame)
                         email_sent_for_violation = True
                         #last_email_time = current_time
@@ -155,7 +155,7 @@ def gen_frames(video_path):
                     status_color = (0, 165, 255)  # orange
 
             else:
-                # 🔹 Reset if no violation
+                #  Reset if no violation
                 violation_start_time = None
                 email_sent_for_violation = False
                 current_status = "SAFE"
@@ -167,14 +167,14 @@ def gen_frames(video_path):
         # Draw detections
         frame = draw_detections(frame, current_detections)
         
-        # 🔹 Draw Status Banner on top
+        #  Draw Status Banner on top
         cv2.rectangle(frame, (0, 0), (frame.shape[1], 50), (30, 30, 30), -1)
         cv2.putText(frame, f"STATUS: {current_status}", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 1, status_color, 2)
         cv2.putText(frame, f"FRAME: {frame_count}", (frame.shape[1] - 200, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
 
         frame_count += 1
 
-        # 🔹 Encode as JPEG
+        #  Encode as JPEG
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
             continue
@@ -186,7 +186,7 @@ def gen_frames(video_path):
     cap.release()
 
 
-# 🔹 Video Processing (Fast Return for Streaming)
+#  Video Processing (Fast Return for Streaming)
 async def process_video_init(file: UploadFile):
     file_id = str(uuid.uuid4())
     input_filename = f"{file_id}_in.mp4"
@@ -204,7 +204,7 @@ async def process_video_init(file: UploadFile):
     }
 
 
-# 🔹 Streaming Endpoint
+#  Streaming Endpoint
 @app.get("/stream/{file_id}")
 async def stream_video(file_id: str):
     video_path = os.path.join(UPLOAD_DIR, f"{file_id}_in.mp4")
@@ -215,7 +215,7 @@ async def stream_video(file_id: str):
                              media_type="multipart/x-mixed-replace; boundary=frame")
 
 
-# 🔹 Main API Endpoint
+#  Main API Endpoint
 @app.post("/predict")
 async def predict_api(file: UploadFile = File(...)):
     filename = file.filename
@@ -228,7 +228,7 @@ async def predict_api(file: UploadFile = File(...)):
         }
 
     elif is_video(filename):
-        # 🔹 Return stream URL immediately instead of processing whole video
+        #  Return stream URL immediately instead of processing whole video
         result = await process_video_init(file)
         return result
 
@@ -239,7 +239,7 @@ async def predict_api(file: UploadFile = File(...)):
         )
 
 
-# 🔹 Health Check
+# Health Check
 @app.get("/")
 def health():
-    return {"status": "API is running 🚀"}
+    return {"status": "API is running"}

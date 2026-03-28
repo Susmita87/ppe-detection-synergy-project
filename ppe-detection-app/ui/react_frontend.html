@@ -455,7 +455,7 @@
                             {/* Static status for images, dynamic for videos (via video feed) */}
                             {result.type === 'image' && (
                                 <div className={`status ${result.violations_detected ? 'danger' : 'success'}`}>
-                                    {result.violations_detected ? '🚨 SAFETY VIOLATION DETECTED!' : '✅ ALL CLEAR: NO VIOLATIONS'}
+                                    {result.violations_detected ? 'SAFETY VIOLATION DETECTED!' : 'ALL CLEAR: NO VIOLATIONS'}
                                 </div>
                             )}
 

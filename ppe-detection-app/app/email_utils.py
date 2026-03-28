@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# 🔹 CONFIG (move to env later)
+# CONFIG (move to env later)
 SENDER_EMAIL = os.getenv("EMAIL_USER")
 APP_PASSWORD = os.getenv("EMAIL_PASS")
 RECEIVER_EMAIL = os.getenv("EMAIL_TO")
@@ -16,7 +16,7 @@ import threading
 
 def _send_email_worker(frame_copy):
     if not all([SENDER_EMAIL, APP_PASSWORD, RECEIVER_EMAIL]):
-        print("❌ Cannot send email: MISSING environment variables (SENDER_EMAIL, APP_PASSWORD, or RECEIVER_EMAIL)")
+        print("Cannot send email: MISSING environment variables (SENDER_EMAIL, APP_PASSWORD, or RECEIVER_EMAIL)")
         return
 
     try:
@@ -47,7 +47,7 @@ def _send_email_worker(frame_copy):
             smtp.login(SENDER_EMAIL, APP_PASSWORD)
             smtp.send_message(msg)
 
-        print("📧 Email alert sent successfully")
+        print("Email alert sent successfully")
 
         # Cleanup 
         os.remove(filepath)

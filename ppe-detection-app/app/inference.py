@@ -40,7 +40,7 @@ def predict(image):
 
     detections = []
     
-    # 🔹 Temporary storage for multi-pass logic
+    # Temporary storage for multi-pass logic
     people = []
     gear = []
     explicit_violations = []
@@ -77,7 +77,7 @@ def predict(image):
             # Add to main list (formatted for return)
             detections.append(det)
 
-    # 🔹 Per-Person Violation Logic
+    # Per-Person Violation Logic
     any_person_missing_gear = False
     
     for p in people:
@@ -95,7 +95,7 @@ def predict(image):
             p["violation"] = True
             any_person_missing_gear = True
 
-    # 🔹 Final Violation Logic
+    # Final Violation Logic
     violation_detected = any_person_missing_gear or len(explicit_violations) > 0
     # violation_detected = any_person_missing_gear
 

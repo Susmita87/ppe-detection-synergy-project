@@ -1,7 +1,7 @@
-# 🔹 Inference Settings
+#  Inference Settings
 CONF_THRESHOLD = 0.3
 
-# 🔹 Violation Rules Configuration
+#  Violation Rules Configuration
 # Direct violations (e.g. NO-Hardhat, NO-Vest)
 VIOLATION_CLASSES = [2, 4]
 

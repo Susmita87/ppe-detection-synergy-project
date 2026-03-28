@@ -25,7 +25,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 echo "Starting Lite React Frontend on port 3000..."
-# 🔹 Use Python's built-in server to host the HTML
+#  Use Python's built-in server to host the HTML
 (cd ui && python3 -m http.server 3000) &
 REACT_PID=$!
 
