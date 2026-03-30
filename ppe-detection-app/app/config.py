@@ -1,5 +1,5 @@
 #  Inference Settings
-CONF_THRESHOLD = 0.3
+CONF_THRESHOLD = 0.5
 
 #  Violation Rules Configuration
 # Direct violations (e.g. NO-Hardhat, NO-Vest)

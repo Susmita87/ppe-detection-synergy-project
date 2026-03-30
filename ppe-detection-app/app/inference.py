@@ -31,12 +31,25 @@ def is_overlapping(box1, box2):
     cy = (box1[1] + box1[3]) / 2
     return (box2[0] <= cx <= box2[2]) and (box2[1] <= cy <= box2[3])
 
+def filter_person_boxes(boxes):
+    filtered = []
+    
+    for box in boxes:
+        x1, y1, x2, y2 = box.xyxy[0].tolist()
+        
+        # ❌ Remove overly large boxes
+        if (x2 - x1) * (y2 - y1) > 0.8:  # >80% of image
+            continue
+        
+        filtered.append(box)
+    
+    return filtered
 
 def predict(image):
     """
     Run inference on input image and return structured results
     """
-    results = model(image)
+    results = model(image, conf=CONF_THRESHOLD, iou=0.5, imgsz=640)
 
     detections = []
     
@@ -46,6 +59,7 @@ def predict(image):
     explicit_violations = []
     
     for r in results:
+        filter_person_boxes(r.boxes)
         for box in r.boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
