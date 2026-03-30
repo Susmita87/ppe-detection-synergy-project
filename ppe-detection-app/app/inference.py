@@ -49,7 +49,7 @@ def predict(image):
     """
     Run inference on input image and return structured results
     """
-    results = model(image, conf=CONF_THRESHOLD, iou=0.5, imgsz=640)
+    results = model(image, conf=CONF_THRESHOLD, iou=0.5, imgsz=800)
 
     detections = []
     
