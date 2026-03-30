@@ -37,7 +37,7 @@ def filter_person_boxes(boxes):
     for box in boxes:
         x1, y1, x2, y2 = box.xyxy[0].tolist()
         
-        # ❌ Remove overly large boxes
+        # Remove overly large boxes
         if (x2 - x1) * (y2 - y1) > 0.8:  # >80% of image
             continue
         
