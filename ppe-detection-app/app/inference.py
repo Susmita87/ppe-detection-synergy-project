@@ -66,11 +66,11 @@ def predict(image):
             cls = int(base_box.cls[0])
 
             if cls == 0:  # person
-                # x1, y1, x2, y2 = map(int, base_box.xyxy[0])
-                # print(x1, y1, x2, y2)
-                # crop = image[y1:y2, x1:x2]
+                x1, y1, x2, y2 = map(int, base_box.xyxy[0])
+                print(x1, y1, x2, y2)
+                crop = image[y1:y2, x1:x2]
 
-                results = model(image, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
+                results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
     
                 for r in results:
                     filter_person_boxes(r.boxes)
@@ -82,14 +82,14 @@ def predict(image):
                             print(f"Skipping {CLASS_NAMES.get(cls_id, 'class '+str(cls_id))} with confidence {conf:.3f}")
                             continue
 
-                        bbox = box.xyxy[0].tolist()
-                        # bx1, by1, bx2, by2 = box.xyxy[0].tolist()
-                        # bbox = [
-                        #     bx1 + x1,
-                        #     by1 + y1,
-                        #     bx2 + x1,
-                        #     by2 + y1
-                        # ]
+                        # bbox = box.xyxy[0].tolist()
+                        bx1, by1, bx2, by2 = box.xyxy[0].tolist()
+                        bbox = [
+                            bx1 + x1,
+                            by1 + y1,
+                            bx2 + x1,
+                            by2 + y1
+                        ]
                         class_name = CLASS_NAMES.get(cls_id, "Unknown")
                         is_explicit_violation = cls_id in VIOLATION_CLASSES
 
