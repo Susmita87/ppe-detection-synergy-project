@@ -1,5 +1,7 @@
 #  Inference Settings
 CONF_THRESHOLD = 0.5
+CONF_IOU = 0.5
+CONF_IMGZ = 800
 
 #  Violation Rules Configuration
 # Direct violations (e.g. NO-Hardhat, NO-Vest)

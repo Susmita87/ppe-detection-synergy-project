@@ -72,5 +72,17 @@ To stop both the backend and frontend services, simply press **Ctrl+C** in the t
 The main endpoint for prediction is:
 - `POST /predict`: Upload an image or video file to receive detection results.
 
+## Best Models
+best.pt:
+This has been fine tuned for 100 epochs on the custom dataset. No layer has been freezed.
+
+best-v1.pt:
+This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 10 layers.
+Till now best model so far, not able to clearly detect incase the person's are far away.
+
+best-v2.pt:
+This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 5 layers.
+
 ---
 *Created for the IITB-AIMLPractice-Project.*
+
