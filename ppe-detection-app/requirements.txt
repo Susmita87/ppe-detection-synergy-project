@@ -6,3 +6,6 @@ numpy
 requests
 python-multipart
 python-dotenv
+lapx>=0.5.2
+scipy
+torchvision

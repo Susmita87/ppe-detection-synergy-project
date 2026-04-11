@@ -83,6 +83,16 @@ Till now best model so far, not able to clearly detect incase the person's are f
 best-v2.pt:
 This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 5 layers.
 
+best-v3.pt:
+This has been fine tuned with YOLOv8 model.
+
+best-v4-freeze9.pt:
+This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 9 layers.
+
+best-stage2.pt:
+This has been fine tuned in 2 stages, 1st stage freezed 9 layers for 20 epochs and then 1nd stage unfreezed all layers  for 150 epochs on the custom dataset.
+This is another good one with good recall.
+
 ---
 *Created for the IITB-AIMLPractice-Project.*
 

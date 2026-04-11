@@ -5,8 +5,10 @@ from app.config import (
     CONF_IMGZ,
     VIOLATION_CLASSES, 
     REQUIRED_GEAR_CLASSES, 
-    PERSON_CLASS_ID
+    PERSON_CLASS_ID,
+    TRACKER_CONFIG
 )
+import os
 import datetime
 
 # Class mapping (update based on your dataset.yaml)
@@ -48,11 +50,18 @@ def filter_person_boxes(boxes):
     return filtered
 
 
-def predict(image):
+def predict(image, persist=False):
     """
-    Run inference on input image and return structured results
+    Run inference on input image and return structured results.
+    If persist=True, uses tracking with RE-ID.
     """
-    base_results = base_model(image, conf=CONF_THRESHOLD)
+    if persist:
+        if not os.path.exists(TRACKER_CONFIG):
+            print(f"ERROR: Tracker config not found at {TRACKER_CONFIG}")
+            # Fallback to default or raise
+        base_results = base_model.track(image, persist=True, tracker=TRACKER_CONFIG, conf=CONF_THRESHOLD)
+    else:
+        base_results = base_model(image, conf=CONF_THRESHOLD)
 
     detections = []
     
@@ -67,8 +76,15 @@ def predict(image):
 
             if cls == 0:  # person
                 x1, y1, x2, y2 = map(int, base_box.xyxy[0])
-                print(x1, y1, x2, y2)
+                
+                # Ensure valid crop dimensions
+                if x2 <= x1 or y2 <= y1:
+                    continue
+                    
                 crop = image[y1:y2, x1:x2]
+                if crop.size == 0:
+                    continue
+
 
                 results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
     
@@ -99,8 +115,11 @@ def predict(image):
                             "confidence": round(conf, 3),
                             "bbox": bbox, # Keep raw for processing
                             "violation": is_explicit_violation,
-                            "timestamp": datetime.datetime.utcnow().isoformat()
+                            "timestamp": datetime.datetime.utcnow().isoformat(),
+                            "track_id": int(base_box.id[0].item()) if (getattr(base_box, "id", None) is not None and len(base_box.id) > 0) else None
                         }
+
+
 
                         if cls_id == PERSON_CLASS_ID:
                             people.append(det)

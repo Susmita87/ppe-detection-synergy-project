@@ -10,5 +10,12 @@ VIOLATION_CLASSES = [2, 4]
 # Mandatory gear that must be detected if a person is present
 REQUIRED_GEAR_CLASSES = [0, 7]  # 0: Hardhat, 7: Safety Vest
 
-# Class ID for a person
+# Class ID for a person (matches CLASS_NAMES in inference.py)
 PERSON_CLASS_ID = 5
+
+
+import os
+
+# Tracking Settings
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TRACKER_CONFIG = os.path.join(BASE_DIR, "trackers", "custom_tracker.yaml")

@@ -43,7 +43,9 @@ def draw_detections(img, detections):
         is_violation = det["violation"]
 
         color = (0, 0, 255) if is_violation else (0, 255, 0)
-        label = f"{class_name} ({confidence})"
+        track_id = det.get("track_id")
+        id_str = f" ID:{track_id}" if track_id is not None else ""
+        label = f"{class_name}{id_str} ({confidence})"
 
         # Draw box
         p1 = (int(bbox["x1"]), int(bbox["y1"]))
@@ -108,9 +110,10 @@ def gen_frames(video_path):
     status_color = (0, 255, 0)
 
     violation_start_time = None
-    last_email_time = 0
-    EMAIL_COOLDOWN = 60 #seconds (Min time between 2 emails)
-    VIOLATION_THRESHOLD = 0.2 # Real-time duration for test
+    violation_threshold = 0.3 # Increased slightly for stability
+    alerted_ids = set() # Track IDs for which email has already been sent
+    id_violation_starts = {} # track_id -> first_time_seen_violating
+
 
     if not cap.isOpened():
         return
@@ -122,44 +125,57 @@ def gen_frames(video_path):
 
         current_time = time.time()
         
-        #  Inference every 5th frame as requested
+        #  Inference every 5th frame
         if frame_count % 5 == 0:
-            result = predict(frame)
+            result = predict(frame, persist=True)
             current_detections = result["detections"]
             
-            # Update status for this window
             if result["violations_detected"]:
-                #  Start timer if first detection
-                if violation_start_time is None:
-                    violation_start_time = current_time
-                    email_sent_for_violation = False
+                current_time = time.time()
+                
+                # Identify currently violating persons
+                current_violating_ids = {det["track_id"] for det in current_detections 
+                                        if det["violation"] and det.get("track_id") is not None}
+                
+                # Remove timers for IDs no longer violating
+                ids_to_forget = set(id_violation_starts.keys()) - current_violating_ids
+                for rid in ids_to_forget:
+                    del id_violation_starts[rid]
 
-                #  Check if violation persists long enough (Lowered for local debugging)
-                elif current_time - violation_start_time >= VIOLATION_THRESHOLD:
-                    #print(f"Elapsed: {current_time - violation_start_time:.3f}s")
+                # Update status
+                current_status = "MONITORING VIOLATION..."
+                status_color = (0, 165, 255) # orange
+
+                new_alerts_to_send = []
+                for tid in current_violating_ids:
+                    if tid in alerted_ids:
+                        continue
+                        
+                    # Start timer if new
+                    if tid not in id_violation_starts:
+                        id_violation_starts[tid] = current_time
+                    
+                    # Check duration
+                    elif current_time - id_violation_starts[tid] >= violation_threshold:
+                        new_alerts_to_send.append(tid)
+
+                if new_alerts_to_send:
+                    print(f"Sending email alert for new track IDs: {new_alerts_to_send}")
                     current_status = "VIOLATION DETECTED"
                     status_color = (0, 0, 255)
-                
-                    # Send email once per violation
-                    #if current_time - last_email_time > EMAIL_COOLDOWN:
-                    if not email_sent_for_violation:
-                        #  Draw detections first for the email
-                        drawn_frame = draw_detections(frame.copy(), current_detections)
-                        print("Sending email alert...")
-                        send_email_alert(drawn_frame)
-                        email_sent_for_violation = True
-                        #last_email_time = current_time
-
-                else:
-                    current_status = "MONITORING..."
-                    status_color = (0, 165, 255)  # orange
-
+                    
+                    drawn_frame = draw_detections(frame.copy(), current_detections)
+                    send_email_alert(drawn_frame)
+                    
+                    # Mark as alerted
+                    alerted_ids.update(new_alerts_to_send)
             else:
-                #  Reset if no violation
-                violation_start_time = None
-                email_sent_for_violation = False
+                # Reset all timers if total safety
+                id_violation_starts = {}
                 current_status = "SAFE"
                 status_color = (0, 255, 0)
+
+
             
             # Log for the user in console
             print(f"Frame {frame_count}: {current_status} | Detections: {len(current_detections)}")
