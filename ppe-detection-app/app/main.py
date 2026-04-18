@@ -118,8 +118,18 @@ async def process_image(file: UploadFile):
 
     #  Send email if violation detected in image
     if result["violations_detected"]:
-        print("Sending email alert for image violation...")
-        send_email_alert(img)
+        violation_summary = []
+        for det in result["detections"]:
+            if det.get("violation") and det.get("class_id") == PERSON_CLASS_ID:
+                gid = det.get("global_id", "New")
+                missing = det.get("missing_gear", ["General Violation"])
+                violation_summary.append(f"- Person REID:{gid} is missing: {', '.join(missing)}")
+                if isinstance(gid, int):
+                    db.update_email_alert_status(gid)
+        
+        email_msg = "PPE Violation(s) Detected in Uploaded Image:\n\n" + "\n".join(violation_summary)
+        print(f"Sending email alert for image violation: {email_msg}")
+        send_email_alert(img, email_msg)
 
     #  Encode into base64 for direct return
     _, buffer = cv2.imencode('.jpg', img)
@@ -212,12 +222,28 @@ def gen_frames(video_path):
                         new_alerts_to_send.append(tid)
 
                 if new_alerts_to_send:
-                    print(f"Sending email alert for new track IDs: {new_alerts_to_send}")
+                    # Collect details for the email alert
+                    violation_summary = []
+                    for tid in new_alerts_to_send:
+                        # Find the detection for this track_id to get its missing gear and global_id
+                        for det in current_detections:
+                            if det.get("track_id") == tid and det.get("violation"):
+                                gid = det.get("global_id", "Unknown")
+                                missing = det.get("missing_gear", ["General Violation"])
+                                violation_summary.append(f"- Person REID:{gid} (Track:{tid}) is missing: {', '.join(missing)}")
+                                # Update DB if we have a valid global_id
+                                if isinstance(gid, int):
+                                    db.update_email_alert_status(gid)
+                                break # Found the matching detection
+                    
+                    email_msg = "PPE Violation(s) Detected in Video Stream:\n\n" + "\n".join(violation_summary)
+                    print(f"Sending email alert for video: {email_msg}")
+                    
                     current_status = "VIOLATION DETECTED"
                     status_color = (0, 0, 255)
                     
                     drawn_frame = draw_detections(frame.copy(), current_detections)
-                    send_email_alert(drawn_frame)
+                    send_email_alert(drawn_frame, email_msg)
                     
                     # Mark as alerted
                     alerted_ids.update(new_alerts_to_send)

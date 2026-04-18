@@ -20,6 +20,8 @@ class PersonDatabase:
                 embedding BLOB NOT NULL,
                 first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_email_sent_at TIMESTAMP,
+                email_count INTEGER DEFAULT 0,
                 metadata TEXT
             )
         ''')
@@ -57,6 +59,24 @@ class PersonDatabase:
             UPDATE persons SET last_seen = CURRENT_TIMESTAMP WHERE id = ?
         ''', (person_id,))
         self.conn.commit()
+
+    def update_email_alert_status(self, person_id):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE persons 
+            SET last_email_sent_at = CURRENT_TIMESTAMP, 
+                email_count = email_count + 1 
+            WHERE id = ?
+        ''', (person_id,))
+        self.conn.commit()
+
+    def get_email_status(self, person_id):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT last_email_sent_at, email_count FROM persons WHERE id = ?', (person_id,))
+        row = cursor.fetchone()
+        if row:
+            return {"last_sent": row[0], "count": row[1]}
+        return None
 
     def get_all_persons(self):
         cursor = self.conn.cursor()

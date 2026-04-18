@@ -168,10 +168,14 @@ def predict(image, persist=False):
                 p_has_gear[g["class_id"]] = True
         
         # If this person is missing any mandatory gear
-        is_p_violating = not all(p_has_gear.values())
+        missing_items = [CLASS_NAMES[gid] for gid, status in p_has_gear.items() if not status]
+        is_p_violating = len(missing_items) > 0
         if is_p_violating:
             p["violation"] = True
+            p["missing_gear"] = missing_items
             any_person_missing_gear = True
+        else:
+            p["missing_gear"] = []
 
     # Final Violation Logic
     violation_detected = any_person_missing_gear or len(explicit_violations) > 0

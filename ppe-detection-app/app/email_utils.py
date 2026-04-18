@@ -14,7 +14,7 @@ RECEIVER_EMAIL = os.getenv("EMAIL_TO")
 
 import threading
 
-def _send_email_worker(frame_copy):
+def _send_email_worker(frame_copy, message):
     if not all([SENDER_EMAIL, APP_PASSWORD, RECEIVER_EMAIL]):
         print("Cannot send email: MISSING environment variables (SENDER_EMAIL, APP_PASSWORD, or RECEIVER_EMAIL)")
         return
@@ -31,8 +31,8 @@ def _send_email_worker(frame_copy):
         msg["To"] = RECEIVER_EMAIL
 
         msg.set_content(
-           "A PPE violation has been detected.\n\n"
-            "Please find the attached image."
+            f"{message}\n\n"
+             "Please find the attached image for details."
         )
 
         with open(filepath, 'rb') as f:
@@ -55,11 +55,11 @@ def _send_email_worker(frame_copy):
     except Exception as e:
         print(f"Email sending failed: {e}")
 
-def send_email_alert(frame):
+def send_email_alert(frame, message="A PPE violation has been detected."):
     """
     Spins off the email sending to a separate thread so it doesn't block processing.
     """
     # Create a copy so the main thread can continue without corrupting this frame
     frame_copy = frame.copy()
-    thread = threading.Thread(target=_send_email_worker, args=(frame_copy,))
+    thread = threading.Thread(target=_send_email_worker, args=(frame_copy, message))
     thread.start()
