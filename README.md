@@ -1,98 +1,110 @@
 # PPE Detection Synergy Project
 
-A real-time Personal Protective Equipment (PPE) detection system using AI (FAST API & React Lite). This application processes images and videos to identify safety gear violations (e.g., missing helmets, vests, etc.).
+A production-grade Personal Protective Equipment (PPE) detection system featuring real-time tracking, persistent cross-video Re-Identification (ReID), and automated safety alerts.
 
-## Key Features
+## 🚀 Key Features
 
-- **Real-time Detection**: Processes images and video streams.
-- **Visual Feedback**: Bounding boxes and status overlays on detected people.
-- **Safety Status**: Instant "SAFE" or "VIOLATION DETECTED" indicators.
-- **Web Interface**: Lightweight React-based UI for uploading and viewing results.
+-   **Dual-Model Inference**: Optimized detection using a base person detector followed by high-resolution PPE-specific crops.
+-   **Real-time Tracking**: Uses **ByteTrack** to maintain identities within a single video session.
+-   **Persistent Re-Identification (ReID)**: Extracts visual embeddings using **MobileNetV3** to recognize individuals across different video files and sessions.
+-   **Database Persistence**: Local **SQLite** storage for person profiles, including embeddings, visit history, and alert frequency.
+-   **Smart Email Alerts**: Automated SMTP alerts with snapshots of violations, featuring stability thresholds to prevent spam.
+-   **High-Performance Streaming**: FastAPI-based MJPEG streaming for real-time visualization of tracking and ReID results.
 
-## Prerequisites
+## 🏗️ System Architecture
 
-- Python 3.9 or higher
-- Bash (for running the setup script)
+The latest architecture follows a modular pipeline design:
 
-## Setup & Installation
+```mermaid
+graph TD
+    A[Client/UI] --> B(FastAPI Server)
+    B --> C[Inference Pipeline]
+    
+    subgraph "Inference Pipeline Logic"
+        C1[Base Detection: Person] --> C2[PPE Model: Vest/Helmet]
+        C1 --> C3[ByteTrack Tracking]
+        C2 --> C4[Violation Logic]
+        C1 --> C5[MobileNetV3 Extractor]
+    end
+    
+    C5 --> D[(SQLite Database)]
+    D --> E[Global ID Assignment]
+    
+    C4 --> F[Email Alert System]
+    F --> G[User Notification]
+    
+    E --> H[Result Visualization]
+    C4 --> H
+    H --> A
+```
 
-The project includes an automated script (`run_local.sh`) that handles virtual environment creation, dependency installation, and service startup.
+### Core Components
 
-### 1. Clone the repository
+1.  **AI Models**:
+    *   **Base Model**: Primary detection and tracking (YOLO).
+    *   **PPE Model**: Specialized fine-tuned model for detecting safety gear (Helmets, Vests, Masks).
+    *   **Feature Extractor**: MobileNetV3 generating 576-dimensional L2-normalized embeddings for ReID.
+2.  **Tracking & ReID**:
+    *   **ByteTrack**: Provides frame-to-frame temporal consistency.
+    *   **ReID Logic**: Performs cosine similarity search against the SQLite database to assign a persistent **Global ID** (e.g., `REID:12`).
+3.  **Data Layer**:
+    *   **SQLite**: Stores `persons` table with binary blobs for embeddings and metadata.
+4.  **Alerting**:
+    *   **Threshold-based Alerting**: Only triggers emails if a person violates PPE rules for more than `X` seconds, reducing false positives.
+
+## 🛠️ Setup & Installation
+
+### 1. Requirements
+-   Python 3.9+
+-   `ffmpeg` (for video processing)
+-   Environment variables for email alerts (see `.env.example`)
+
+### 2. Installation
 ```bash
+# Clone and enter directory
 git clone <repository-url>
-cd ppe-detection-synergy-project
-```
+cd ppe-detection-synergy-project/ppe-detection-app
 
-### 2. Navigate to the app directory
-```bash
-cd ppe-detection-app
-```
-
-### 3. Run the application
-Execute the setup script:
-```bash
+# Run the automated setup script
 bash run_local.sh
 ```
 
-This script will:
-- Create a Python virtual environment (`venv`).
-- Install all necessary dependencies from `requirements.txt`.
-- Start the **FastAPI Backend** on port `8000`.
-- Start the **React Lite Frontend** on port `3000`.
+### 3. Configuration
+Create a `.env` file in the `ppe-detection-app` folder:
+```env
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_TO=recipient@example.com
+```
 
-## Accessing the App
-
-Once the services are started, you can access them at:
-
-- **Frontend (UI)**: [http://localhost:3000/react_frontend.html](http://localhost:3000/react_frontend.html)
-- **Backend (API Health)**: [http://localhost:8000/](http://localhost:8000/)
-
-## Project Structure
+## 📂 Project Structure
 
 ```text
 ppe-detection-app/
-├── app/               # FastAPI backend logic
-│   ├── main.py        # API endpoints
-│   └── inference.py   # AI model inference
-├── ui/                # Frontend assets
-│   └── react_frontend.html
-├── weights/           # Pre-trained model weights (.pt)
-├── data/              # Input data (ignored by git)
-├── run_local.sh       # Automated startup script
-└── requirements.txt   # Python dependencies
+├── app/
+│   ├── main.py          # FastAPI application & Streaming endpoints
+│   ├── inference.py     # Multi-pass YOLO pipeline & Violation logic
+│   ├── extractor.py     # MobileNetV3 Person Embedding extractor
+│   ├── database.py      # SQLite ReID persistence layer
+│   ├── email_utils.py   # Asynchronous SMTP alert handling
+│   └── config.py        # System-wide thresholds & Class IDs
+├── database/            # stores embeddings.db
+├── weights/             # YOLOv8/v11 weight files (.pt)
+├── ui/                  # React Lite frontend
+├── run_local.sh         # System bootstrapper
+└── requirements.txt     # Dependency list
 ```
 
-## Stopping the Services
+## 📊 Available Models
 
-To stop both the backend and frontend services, simply press **Ctrl+C** in the terminal where the script is running. The script includes a cleanup routine to terminate the background processes automatically.
-
-## API Usage
-
-The main endpoint for prediction is:
-- `POST /predict`: Upload an image or video file to receive detection results.
-
-## Best Models
-best.pt:
-This has been fine tuned for 100 epochs on the custom dataset. No layer has been freezed.
-
-best-v1.pt:
-This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 10 layers.
-Till now best model so far, not able to clearly detect incase the person's are far away.
-
-best-v2.pt:
-This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 5 layers.
-
-best-v3.pt:
-This has been fine tuned with YOLOv8 model.
-
-best-v4-freeze9.pt:
-This has been fine tuned for 150 epochs on the custom dataset. The backbone has been freezed for 9 layers.
-
-best-stage2.pt:
-This has been fine tuned in 2 stages, 1st stage freezed 9 layers for 20 epochs and then 1nd stage unfreezed all layers  for 150 epochs on the custom dataset.
-This is another good one with good recall.
+- **best-stage2.pt**: (Recommended) Fine-tuned in 2 stages: 1st stage frozen backbone (9 layers) for 20 epochs, 2nd stage unfreezed all layers for 150 epochs. Best recall so far.
+- **best-v1.pt**: Fine-tuned for 150 epochs with 10 layers frozen. Good stability, but lower recall for distance.
+- **best-v3.pt**: YOLOv8-based variant.
+- **best-v4-freeze9.pt**: Fine-tuned for 150 epochs with 9 layers frozen.
+- **best-v2.pt**: Fine-tuned for 150 epochs with 5 layers frozen.
 
 ---
-*Created for the IITB-AIMLPractice-Project.*
+*Developed for the IITB-AIMLPractice-Project.*
+
+
 
