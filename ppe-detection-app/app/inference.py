@@ -10,6 +10,8 @@ from app.config import (
 )
 import os
 import datetime
+import numpy as np
+from app.extractor import extractor
 
 # Class mapping (update based on your dataset.yaml)
 CLASS_NAMES = {
@@ -59,9 +61,9 @@ def predict(image, persist=False):
         if not os.path.exists(TRACKER_CONFIG):
             print(f"ERROR: Tracker config not found at {TRACKER_CONFIG}")
             # Fallback to default or raise
-        base_results = base_model.track(image, persist=True, tracker=TRACKER_CONFIG, conf=CONF_THRESHOLD)
+        base_results = base_model.track(image, persist=True, tracker=TRACKER_CONFIG, conf=CONF_THRESHOLD, embed=None)
     else:
-        base_results = base_model(image, conf=CONF_THRESHOLD)
+        base_results = base_model(image, conf=CONF_THRESHOLD, embed=None)
 
     detections = []
     
@@ -86,8 +88,31 @@ def predict(image, persist=False):
                     continue
 
 
+                # Extract high-quality appearance embedding for Re-ID
+                person_embedding = None
+                try:
+                    feat = extractor.extract(crop)
+                    person_embedding = feat.tolist()
+                except Exception as e:
+                    print(f"Error extracting embedding: {e}")
+
+                # Results from specialized PPE model
                 results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
-    
+                
+                # We also create a 'base' person detection from the initial detection
+                # to ensure Re-ID works even if the PPE model is less confident about the person.
+                base_person_det = {
+                    "class_id": PERSON_CLASS_ID,
+                    "class_name": "Person",
+                    "confidence": round(float(base_box.conf[0]), 3),
+                    "bbox": [x1, y1, x2, y2],
+                    "violation": False, # Will be updated below
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                    "track_id": int(base_box.id[0].item()) if (getattr(base_box, "id", None) is not None and len(base_box.id) > 0) else None,
+                    "embedding": person_embedding
+                }
+                
+                ppe_person_found = False
                 for r in results:
                     filter_person_boxes(r.boxes)
                     for box in r.boxes:
@@ -95,17 +120,10 @@ def predict(image, persist=False):
                         conf = float(box.conf[0])
 
                         if conf < CONF_THRESHOLD:
-                            print(f"Skipping {CLASS_NAMES.get(cls_id, 'class '+str(cls_id))} with confidence {conf:.3f}")
                             continue
 
-                        # bbox = box.xyxy[0].tolist()
                         bx1, by1, bx2, by2 = box.xyxy[0].tolist()
-                        bbox = [
-                            bx1 + x1,
-                            by1 + y1,
-                            bx2 + x1,
-                            by2 + y1
-                        ]
+                        bbox = [bx1 + x1, by1 + y1, bx2 + x1, by2 + y1]
                         class_name = CLASS_NAMES.get(cls_id, "Unknown")
                         is_explicit_violation = cls_id in VIOLATION_CLASSES
 
@@ -113,23 +131,29 @@ def predict(image, persist=False):
                             "class_id": cls_id,
                             "class_name": class_name,
                             "confidence": round(conf, 3),
-                            "bbox": bbox, # Keep raw for processing
+                            "bbox": bbox,
                             "violation": is_explicit_violation,
                             "timestamp": datetime.datetime.utcnow().isoformat(),
-                            "track_id": int(base_box.id[0].item()) if (getattr(base_box, "id", None) is not None and len(base_box.id) > 0) else None
+                            "track_id": base_person_det["track_id"],
+                            "embedding": person_embedding if cls_id == PERSON_CLASS_ID else None
                         }
 
-
-
                         if cls_id == PERSON_CLASS_ID:
-                            people.append(det)
+                            # Use the PPE model's person detection if it's confident
+                            # We update the base person info with this more specific detection
+                            base_person_det.update(det)
+                            ppe_person_found = True
                         elif cls_id in REQUIRED_GEAR_CLASSES:
                             gear.append(det)
                         elif is_explicit_violation:
                             explicit_violations.append(det)
                         
-                        # Add to main list (formatted for return)
-                        detections.append(det)
+                        if cls_id != PERSON_CLASS_ID: # Gear/violations added immediately
+                            detections.append(det)
+                
+                # Always add the person (either the base one or the refined PPE one)
+                people.append(base_person_det)
+                detections.append(base_person_det)
                         
     # Per-Person Violation Logic
     any_person_missing_gear = False

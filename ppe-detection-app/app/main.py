@@ -10,6 +10,8 @@ import base64
 import time
 from app.inference import predict
 from app.email_utils import send_email_alert
+from app.database import db
+from app.config import PERSON_CLASS_ID
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,7 +46,14 @@ def draw_detections(img, detections):
 
         color = (0, 0, 255) if is_violation else (0, 255, 0)
         track_id = det.get("track_id")
-        id_str = f" ID:{track_id}" if track_id is not None else ""
+        global_id = det.get("global_id")
+        
+        id_str = ""
+        if track_id is not None:
+            id_str += f" T:{track_id}"
+        if global_id is not None:
+            id_str += f" REID:{global_id}"
+            
         label = f"{class_name}{id_str} ({confidence})"
 
         # Draw box
@@ -53,12 +62,12 @@ def draw_detections(img, detections):
         cv2.rectangle(img, p1, p2, color, 2)
 
         # Draw background for text
-        text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+        text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
         text_w, text_h = text_size
         cv2.rectangle(img, p1, (p1[0] + text_w, p1[1] - text_h - 10), color, -1)
 
         # Draw text
-        cv2.putText(img, label, (p1[0], p1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(img, label, (p1[0], p1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
     
     return img
 
@@ -82,6 +91,27 @@ async def process_image(file: UploadFile):
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     result = predict(img)
+    
+    # RE-ID Logic for singular image
+    for det in result["detections"]:
+        if det["class_id"] == PERSON_CLASS_ID:
+            emb = det.get("embedding")
+            if emb:
+                gid, sim = db.find_match(emb)
+                if gid:
+                    print(f"RE-ID (Image): Matched to Global ID {gid} (sim: {sim:.3f})")
+                    det["global_id"] = gid
+                    db.update_last_seen(gid)
+                else:
+                    print(f"RE-ID (Image): No match found (best sim: {sim:.3f}). Saving new person...")
+                    gid = db.save_person(emb, metadata={"source": "image_upload"})
+                    if gid:
+                        print(f"RE-ID (Image): New person, assigned Global ID {gid}")
+                        det["global_id"] = gid
+                    else:
+                        print("RE-ID (Image): FAILED to save person to database.")
+            else:
+                print("RE-ID (Image): No embedding found for detected person.")
     
     #  Draw detections on the image
     img = draw_detections(img, result["detections"])
@@ -113,6 +143,9 @@ def gen_frames(video_path):
     violation_threshold = 0.3 # Increased slightly for stability
     alerted_ids = set() # Track IDs for which email has already been sent
     id_violation_starts = {} # track_id -> first_time_seen_violating
+    
+    # RE-ID Person Mapping (track_id -> global_id)
+    track_to_global = {} 
 
 
     if not cap.isOpened():
@@ -129,6 +162,25 @@ def gen_frames(video_path):
         if frame_count % 5 == 0:
             result = predict(frame, persist=True)
             current_detections = result["detections"]
+            
+            # Persistent RE-ID Logic
+            for det in current_detections:
+                tid = det.get("track_id")
+                if tid is not None and det["class_id"] == PERSON_CLASS_ID:
+                    if tid not in track_to_global:
+                        emb = det.get("embedding")
+                        if emb:
+                            gid, sim = db.find_match(emb)
+                            if gid:
+                                print(f"RE-ID: Matched track {tid} to Global ID {gid} (sim: {sim:.3f})")
+                                track_to_global[tid] = gid
+                                db.update_last_seen(gid)
+                            else:
+                                gid = db.save_person(emb, metadata={"source": video_path})
+                                print(f"RE-ID: New person detected, assigned Global ID {gid}")
+                                track_to_global[tid] = gid
+                    
+                    det["global_id"] = track_to_global.get(tid)
             
             if result["violations_detected"]:
                 current_time = time.time()
