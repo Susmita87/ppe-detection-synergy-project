@@ -227,7 +227,7 @@ def gen_frames(video_path):
                     for tid in new_alerts_to_send:
                         # Find the detection for this track_id to get its missing gear and global_id
                         for det in current_detections:
-                            if det.get("track_id") == tid and det.get("violation"):
+                            if det.get("track_id") == tid and det.get("violation") and det.get("class_id") == PERSON_CLASS_ID:
                                 gid = det.get("global_id", "Unknown")
                                 missing = det.get("missing_gear", ["General Violation"])
                                 violation_summary.append(f"- Person REID:{gid} (Track:{tid}) is missing: {', '.join(missing)}")

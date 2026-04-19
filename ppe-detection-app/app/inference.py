@@ -6,12 +6,14 @@ from app.config import (
     VIOLATION_CLASSES, 
     REQUIRED_GEAR_CLASSES, 
     PERSON_CLASS_ID,
-    TRACKER_CONFIG
+    TRACKER_CONFIG,
+    PIPELINE_MODE
 )
 import os
 import datetime
 import numpy as np
 from app.extractor import extractor
+from app.vlm_validator import vlm_validator
 
 # Class mapping (update based on your dataset.yaml)
 CLASS_NAMES = {
@@ -96,64 +98,105 @@ def predict(image, persist=False):
                 except Exception as e:
                     print(f"Error extracting embedding: {e}")
 
-                # Results from specialized PPE model
-                results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
-                
-                # We also create a 'base' person detection from the initial detection
-                # to ensure Re-ID works even if the PPE model is less confident about the person.
+                # Always add the person
                 base_person_det = {
                     "class_id": PERSON_CLASS_ID,
                     "class_name": "Person",
                     "confidence": round(float(base_box.conf[0]), 3),
                     "bbox": [x1, y1, x2, y2],
-                    "violation": False, # Will be updated below
+                    "violation": False,
                     "timestamp": datetime.datetime.utcnow().isoformat(),
                     "track_id": int(base_box.id[0].item()) if (getattr(base_box, "id", None) is not None and len(base_box.id) > 0) else None,
                     "embedding": person_embedding
                 }
-                
-                ppe_person_found = False
-                for r in results:
-                    filter_person_boxes(r.boxes)
-                    for box in r.boxes:
-                        cls_id = int(box.cls[0])
-                        conf = float(box.conf[0])
 
-                        if conf < CONF_THRESHOLD:
-                            continue
-
-                        bx1, by1, bx2, by2 = box.xyxy[0].tolist()
-                        bbox = [bx1 + x1, by1 + y1, bx2 + x1, by2 + y1]
-                        class_name = CLASS_NAMES.get(cls_id, "Unknown")
-                        is_explicit_violation = cls_id in VIOLATION_CLASSES
-
+                if PIPELINE_MODE == "VLM":
+                    # --- VLM PIPEINE: VLM (CLIP) → validate PPE ---
+                    vlm_results = vlm_validator.validate_ppe(crop)
+                    
+                    # Map VLM results to detections
+                    # Hardhat validation
+                    if vlm_results.get("hardhat"):
                         det = {
-                            "class_id": cls_id,
-                            "class_name": class_name,
-                            "confidence": round(conf, 3),
-                            "bbox": bbox,
-                            "violation": is_explicit_violation,
-                            "timestamp": datetime.datetime.utcnow().isoformat(),
-                            "track_id": base_person_det["track_id"],
-                            "embedding": person_embedding if cls_id == PERSON_CLASS_ID else None
+                            "class_id": 0, "class_name": "Hardhat",
+                            "confidence": round(vlm_results["hardhat_confidence"], 3),
+                            "bbox": [x1, y1, x2, y2], "violation": False,
+                            "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
                         }
+                        gear.append(det)
+                    else:
+                        det = {
+                            "class_id": 2, "class_name": "NO-Hardhat",
+                            "confidence": round(1.0 - vlm_results["hardhat_confidence"], 3),
+                            "bbox": [x1, y1, x2, y2], "violation": True,
+                            "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
+                        }
+                        explicit_violations.append(det)
+                    detections.append(det)
 
-                        if cls_id == PERSON_CLASS_ID:
-                            # Use the PPE model's person detection if it's confident
-                            # We update the base person info with this more specific detection
-                            base_person_det.update(det)
-                            ppe_person_found = True
-                        elif cls_id in REQUIRED_GEAR_CLASSES:
-                            gear.append(det)
-                        elif is_explicit_violation:
-                            explicit_violations.append(det)
-                        
-                        if cls_id != PERSON_CLASS_ID: # Gear/violations added immediately
-                            detections.append(det)
-                
-                # Always add the person (either the base one or the refined PPE one)
-                people.append(base_person_det)
-                detections.append(base_person_det)
+                    # Vest validation
+                    if vlm_results.get("vest"):
+                        det = {
+                            "class_id": 7, "class_name": "Safety Vest",
+                            "confidence": round(vlm_results["vest_confidence"], 3),
+                            "bbox": [x1, y1, x2, y2], "violation": False,
+                            "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
+                        }
+                        gear.append(det)
+                    else:
+                        det = {
+                            "class_id": 4, "class_name": "NO-Safety Vest",
+                            "confidence": round(1.0 - vlm_results["vest_confidence"], 3),
+                            "bbox": [x1, y1, x2, y2], "violation": True,
+                            "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
+                        }
+                        explicit_violations.append(det)
+                    detections.append(det)
+                    
+                    people.append(base_person_det)
+                    detections.append(base_person_det)
+
+                else:
+                    # --- LEGACY PIPELINE: YOLO Stage 2 ---
+                    results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
+                    
+                    ppe_person_found = False
+                    for r in results:
+                        filter_person_boxes(r.boxes)
+                        for box in r.boxes:
+                            cls_id = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            if conf < CONF_THRESHOLD: continue
+
+                            bx1, by1, bx2, by2 = box.xyxy[0].tolist()
+                            bbox = [bx1 + x1, by1 + y1, bx2 + x1, by2 + y1]
+                            class_name = CLASS_NAMES.get(cls_id, "Unknown")
+                            is_explicit_violation = cls_id in VIOLATION_CLASSES
+
+                            det = {
+                                "class_id": cls_id,
+                                "class_name": class_name,
+                                "confidence": round(conf, 3),
+                                "bbox": bbox,
+                                "violation": is_explicit_violation,
+                                "timestamp": datetime.datetime.utcnow().isoformat(),
+                                "track_id": base_person_det["track_id"],
+                                "embedding": person_embedding if cls_id == PERSON_CLASS_ID else None
+                            }
+
+                            if cls_id == PERSON_CLASS_ID:
+                                base_person_det.update(det)
+                                ppe_person_found = True
+                            elif cls_id in REQUIRED_GEAR_CLASSES:
+                                gear.append(det)
+                            elif is_explicit_violation:
+                                explicit_violations.append(det)
+                            
+                            if cls_id != PERSON_CLASS_ID:
+                                detections.append(det)
+                    
+                    people.append(base_person_det)
+                    detections.append(base_person_det)
                         
     # Per-Person Violation Logic
     any_person_missing_gear = False
