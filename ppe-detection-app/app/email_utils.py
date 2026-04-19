@@ -4,6 +4,7 @@ import cv2
 import time
 import os 
 from dotenv import load_dotenv
+from app.config import SMTP_SERVER, SMTP_PORT
 
 load_dotenv()
 
@@ -43,7 +44,7 @@ def _send_email_worker(frame_copy, message):
                 filename = filename
             )
         
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.login(SENDER_EMAIL, APP_PASSWORD)
             smtp.send_message(msg)
 

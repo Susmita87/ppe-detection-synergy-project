@@ -3,8 +3,7 @@ import json
 import numpy as np
 import os
 from datetime import datetime
-
-DB_PATH = "database/embeddings.db"
+from app.config import DB_PATH, REID_THRESHOLD
 
 class PersonDatabase:
     def __init__(self):
@@ -92,7 +91,7 @@ class PersonDatabase:
             })
         return persons
 
-    def find_match(self, embedding, threshold=0.75):
+    def find_match(self, embedding, threshold=REID_THRESHOLD):
         """
         Finds the closest person in the DB.
         Returns (person_id, similarity) or (None, 0)
@@ -120,6 +119,7 @@ class PersonDatabase:
         if best_similarity >= threshold:
             return best_match_id, best_similarity
         return None, best_similarity
+
 
 # Global instance
 db = PersonDatabase()

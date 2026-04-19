@@ -7,27 +7,15 @@ from app.config import (
     REQUIRED_GEAR_CLASSES, 
     PERSON_CLASS_ID,
     TRACKER_CONFIG,
-    PIPELINE_MODE
+    PIPELINE_MODE,
+    CLASS_NAMES,
+    MAX_PERSON_BOX_SIZE
 )
 import os
 import datetime
 import numpy as np
 from app.extractor import extractor
 from app.vlm_validator import vlm_validator
-
-# Class mapping (update based on your dataset.yaml)
-CLASS_NAMES = {
-    0: "Hardhat",
-    1: "Mask",
-    2: "NO-Hardhat",
-    3: "NO-Mask",
-    4: "NO-Safety Vest",
-    5: "Person",
-    6: "Safety Cone",
-    7: "Safety Vest",
-    8: "Machinery",
-    9: "Vehicle"
-}
 
 
 def is_overlapping(box1, box2):
@@ -46,12 +34,13 @@ def filter_person_boxes(boxes):
         x1, y1, x2, y2 = box.xyxy[0].tolist()
         
         # Remove overly large boxes
-        if (x2 - x1) * (y2 - y1) > 0.8:  # >80% of image
+        if (x2 - x1) * (y2 - y1) > MAX_PERSON_BOX_SIZE:
             continue
         
         filtered.append(box)
     
     return filtered
+
 
 
 def predict(image, persist=False):

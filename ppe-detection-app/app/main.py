@@ -11,7 +11,14 @@ import time
 from app.inference import predict
 from app.email_utils import send_email_alert
 from app.database import db
-from app.config import PERSON_CLASS_ID
+from app.config import (
+    PERSON_CLASS_ID, 
+    STATIC_DIR, 
+    UPLOAD_DIR, 
+    INFERENCE_INTERVAL, 
+    VIOLATION_WAIT_TIME, 
+    BASE_URL
+)
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,7 +26,6 @@ load_dotenv()
 app = FastAPI(title="PPE Detection API")
 
 # Mount static directory for processed results (preserved for images)
-STATIC_DIR = "static_results"
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/results", StaticFiles(directory=STATIC_DIR), name="results")
 
@@ -32,7 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "temp_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -150,7 +155,7 @@ def gen_frames(video_path):
     status_color = (0, 255, 0)
 
     violation_start_time = None
-    violation_threshold = 0.3 # Increased slightly for stability
+    violation_threshold = VIOLATION_WAIT_TIME
     alerted_ids = set() # Track IDs for which email has already been sent
     id_violation_starts = {} # track_id -> first_time_seen_violating
     
@@ -168,8 +173,8 @@ def gen_frames(video_path):
 
         current_time = time.time()
         
-        #  Inference every 5th frame
-        if frame_count % 5 == 0:
+        #  Inference every Nth frame
+        if frame_count % INFERENCE_INTERVAL == 0:
             result = predict(frame, persist=True)
             current_detections = result["detections"]
             
@@ -294,7 +299,7 @@ async def process_video_init(file: UploadFile):
     return {
         "type": "video",
         "file_id": file_id,
-        "stream_url": f"http://localhost:8000/stream/{file_id}"
+        "stream_url": f"{BASE_URL}/stream/{file_id}"
     }
 
 

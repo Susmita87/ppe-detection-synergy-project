@@ -1,7 +1,7 @@
 import torch
 from PIL import Image
 import numpy as np
-from app.config import VLM_MODEL_ID, VLM_PROMPTS
+from app.config import VLM_MODEL_ID, VLM_PROMPTS, VLM_CONF_THRESHOLD
 
 class VLMValidator:
     def __init__(self):
@@ -40,7 +40,7 @@ class VLMValidator:
             
             # Assuming the first prompt is "wearing" and second is "not wearing"
             wearing_prob = probs[0][0].item()
-            results[gear_type] = wearing_prob > 0.5
+            results[gear_type] = wearing_prob > VLM_CONF_THRESHOLD
             results[f"{gear_type}_confidence"] = wearing_prob
 
         return results
