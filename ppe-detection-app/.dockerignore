@@ -6,3 +6,22 @@ __pycache__/
 .git
 .gitignore
 venv/
+
+# Ignore runtime data (will be mounted as volumes)
+temp_uploads/
+static_results/
+
+# Documentation and scripts
+*.md
+run_local.sh
+ProjectSetup.txt
+
+# Docker files
+Dockerfile*
+docker-compose.yml
+.dockerignore
+
+# Docker files
+Dockerfile*
+docker-compose.yml
+.dockerignore

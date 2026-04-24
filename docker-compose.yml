@@ -1,0 +1,75 @@
+services:
+
+  backend:
+    build:
+      context: ./ppe-detection-app
+    container_name: ppe-backend
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      - MODEL_PATH=/app/weights/best.pt
+      - LOG_LEVEL=INFO
+      - MAX_UPLOAD_SIZE=100
+    volumes:
+      - ./ppe-detection-app/weights:/app/weights # Model weights
+      - ./ppe-detection-app/temp_uploads:/app/temp_uploads # Uploaded files
+      - ./ppe-detection-app/static_results:/app/static_results # Processed results
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - ppe-network
+
+  ui:
+    build:
+      context: ./ppe-detection-app
+      dockerfile: Dockerfile.ui
+    image: ppe-ui-image
+    container_name: ppe-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8000
+    networks:
+      - ppe-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  edge-device-ui:
+    image: ppe-ui-image
+    container_name: ppe-edge-ui
+    ports:
+      - "3001:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8000
+      - EDGE_MODE=true
+    volumes:
+      - ./ppe-detection-app/ui/edge_device_ui.html:/usr/share/nginx/html/edge_device_ui.html:ro
+    networks:
+      - ppe-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  ppe-network:
+    driver: bridge

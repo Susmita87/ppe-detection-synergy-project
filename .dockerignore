@@ -1,0 +1,33 @@
+# Ignore virtual environments and Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ignore environment files
+.env
+
+# Ignore git metadata
+.git
+.gitignore
+
+# Ignore local IDE/editor settings
+.vscode/
+.idea/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore temporary and build output directories
+*.log
+*.tmp
+*.swp
+
+# Ignore project-specific temp data
+ppe-detection-app/temp_uploads/
+ppe-detection-app/static_results/
+
+# Ignore local weights if you do not want them in the build context
+# Keep this commented if weights are needed in Docker build
+# ppe-detection-app/weights/
