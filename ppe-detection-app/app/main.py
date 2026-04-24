@@ -342,3 +342,9 @@ async def predict_api(file: UploadFile = File(...)):
 @app.get("/")
 def health():
     return {"status": "API is running"}
+
+# Dashboard Data Endpoint
+@app.get("/dashboard")
+async def get_dashboard():
+    data = db.get_dashboard_data()
+    return data

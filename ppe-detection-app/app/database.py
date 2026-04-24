@@ -161,6 +161,39 @@ class PersonDatabase:
             return best_match_id, best_similarity
         return None, best_similarity
 
+    def get_dashboard_data(self):
+        """Retrieves unified dashboard view by joining persons and notification_details."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    p.id, 
+                    p.email_count, 
+                    p.last_email_sent,
+                    n.first_seen, 
+                    n.last_seen, 
+                    n.email_sent
+                FROM persons p
+                LEFT JOIN notification_details n ON p.id = n.person_id
+                ORDER BY p.email_count DESC, n.last_seen DESC
+            ''')
+            rows = cursor.fetchall()
+            
+            data = []
+            for row in rows:
+                data.append({
+                    "person_id": row[0],
+                    "total_emails": row[1],
+                    "last_email_aggregate": row[2],
+                    "first_seen": row[3],
+                    "last_seen": row[4],
+                    "email_sent_event": row[5]
+                })
+            return data
+        except Exception as e:
+            print(f"DATABASE ERROR in get_dashboard_data: {e}")
+            return []
+
 
 # Global instance
 db = PersonDatabase()

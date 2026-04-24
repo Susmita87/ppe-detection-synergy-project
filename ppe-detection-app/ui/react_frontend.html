@@ -157,6 +157,109 @@
             color: #6366f1;
             border-bottom: 3px solid #6366f1;
         }
+
+        /* Top Menu Styling */
+        .top-menu {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            background: #1e293b;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+
+        .menu-item {
+            color: #94a3b8;
+            cursor: pointer;
+            font-weight: 600;
+            transition: color 0.2s;
+            text-decoration: none;
+            font-size: 1.1rem;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            color: #ffffff;
+        }
+
+        /* Dashboard Table Styling */
+        .dashboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+            background: #fff;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-table th, .dashboard-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .dashboard-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            color: #334155;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        .dashboard-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dashboard-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-id { background: #e0f2fe; color: #0369a1; }
+        .badge-count { background: #fee2e2; color: #991b1b; }
+        .badge-time { background: #f1f5f9; color: #475569; }
+
+        .sort-icon {
+            font-size: 0.7rem;
+            margin-left: 5px;
+            color: #94a3b8;
+        }
+
+        th.sortable:hover {
+            background-color: #e2e8f0;
+            cursor: pointer;
+        }
+
+        .filter-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .filter-input {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            width: 200px;
+            transition: all 0.2s;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
     </style>
 </head>
 
@@ -167,7 +270,14 @@
         const { useState, useRef, useEffect } = React;
 
         function App() {
-            // Add Tab
+            // High-level navigation
+            const [mainView, setMainView] = useState("stream"); // 'stream' or 'dashboard'
+            const [dashboardData, setDashboardData] = useState([]);
+            const [isFetchingDashboard, setIsFetchingDashboard] = useState(false);
+            const [filterId, setFilterId] = useState("");
+            const [sortConfig, setSortConfig] = useState({ key: 'total_emails', direction: 'desc' });
+
+            // Add Tab (Internal to Stream and Track)
             const [activeTab, setActiveTab] = useState("upload");
 
             // File upload state
@@ -185,6 +295,41 @@
             // Add continuous capture state for real-time processing loop
             const [continuousMode, setContinuousMode] = useState(false);
             const intervalRef = React.useRef(null);
+
+            // Fetch dashboard data when switching to dashboard view
+            useEffect(() => {
+                if (mainView === "dashboard") {
+                    loadDashboard();
+                }
+            }, [mainView]);
+
+            const loadDashboard = async () => {
+                setIsFetchingDashboard(true);
+                try {
+                    const response = await fetch('http://localhost:8000/dashboard');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setDashboardData(data);
+                    }
+                } catch (err) {
+                    console.error("Dashboard Fetch Error:", err);
+                } finally {
+                    setIsFetchingDashboard(false);
+                }
+            };
+
+            const requestSort = (key) => {
+                let direction = 'asc';
+                if (sortConfig.key === key && sortConfig.direction === 'asc') {
+                    direction = 'desc';
+                }
+                setSortConfig({ key, direction });
+            };
+
+            const getSortIcon = (key) => {
+                if (sortConfig.key !== key) return "↕";
+                return sortConfig.direction === 'asc' ? "↑" : "↓";
+            };
 
             // ----------------- Upload -----------------------------
             const handleFileChange = (e) => {
@@ -312,196 +457,316 @@
             // ------------------ Main UI Render -----------------
             
             return (
-                <div className="container">
-                    <h1>PPE Safety Dashboard</h1>
-
-                    {/* Tabs */}
-                    <div className="tabs">
-                        <div
-                            className={`tab ${activeTab === "upload" ? "active" : ""}`}
+                <div style={{width: '100%', maxWidth: '1000px'}}>
+                    {/* Top Menu */}
+                    <div className="top-menu">
+                        <div 
+                            className={`menu-item ${mainView === 'stream' ? 'active' : ''}`}
                             onClick={() => {
-                                setActiveTab("upload");
-                                setResult(null);
-                                setError(null);
-                                stopCamera(); // Ensure camera is stopped when switching to upload
-
-                                stopContinuousCapture(); // Ensure continuous capture is stopped when switching tabs
+                                setMainView('stream');
+                                stopCamera();
                             }}
                         >
-                            Upload
+                            Stream and Track
                         </div>
-
-                        <div
-                            className={`tab ${activeTab === "camera" ? "active" : ""}`}
+                        <div 
+                            className={`menu-item ${mainView === 'dashboard' ? 'active' : ''}`}
                             onClick={() => {
-                                setActiveTab("camera");
-                                setResult(null);
-                                setError(null);
+                                setMainView('dashboard');
+                                stopCamera();
                             }}
                         >
-                            Camera
+                            Dashboard
                         </div>
-                    </div>                    
+                    </div>
 
-                    {/* Upload Box */}
-                    { activeTab === "upload" && (
-                        <>
-                            <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
-                                {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
-                                <input
-                                    id="file-input"
-                                    type="file"
-                                    style={{ display: 'none' }}
-                                    onChange={handleFileChange}
-                                    accept="image/*,video/mp4"
-                                />
-                            </div>
-                        </>
-                    )}
+                    <div className="container">
+                        <h1>PPE Safety Dashboard</h1>
 
-                    {/* Camera UI */}
-                    { activeTab === "camera" && (
-                        <>
-                            <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
+                        {mainView === 'stream' && (
+                            <>
+                                {/* Tabs */}
+                                <div className="tabs">
+                                    <div
+                                        className={`tab ${activeTab === "upload" ? "active" : ""}`}
+                                        onClick={() => {
+                                            setActiveTab("upload");
+                                            setResult(null);
+                                            setError(null);
+                                            stopCamera(); // Ensure camera is stopped when switching to upload
 
-                                {/* VIDEO BOX */}
-                                <div style={{
-                                    width: "100%",
-                                    maxWidth: "500px",
-                                    height: "350px",
-                                    margin: "0 auto",
-                                    borderRadius: "10px",
-                                    overflow: "hidden",
-                                    background: "#000",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center"
-                                }}>
-
-                                    {/* VIDEO */}
-                                    <video
-                                        ref={videoRef}
-                                        autoPlay
-                                        playsInline
-                                        style={{
-                                            width: "100%",
-                                            height: "100%",
-                                            objectFit: "cover",
-                                            display: cameraOn ? "block" : "none"
+                                            stopContinuousCapture(); // Ensure continuous capture is stopped when switching tabs
                                         }}
-                                    />
+                                    >
+                                        Upload
+                                    </div>
 
-                                    {/* Placeholder when camera is OFF */}
-                                    {!cameraOn && (
-                                        <span style={{ color: "#aaa" }}>
-                                            Camera is OFF
-                                        </span>
-                                    )}
-                                </div>
+                                    <div
+                                        className={`tab ${activeTab === "camera" ? "active" : ""}`}
+                                        onClick={() => {
+                                            setActiveTab("camera");
+                                            setResult(null);
+                                            setError(null);
+                                        }}
+                                    >
+                                        Camera
+                                    </div>
+                                </div>                    
 
-                                {/* BUTTONS */}
-                                <div style={{ marginTop: "10px" }}>
-                                    {!cameraOn ? (
-                                        <button onClick={startCamera}>
-                                            Start Camera
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button onClick={captureAndSend}>
-                                                Capture & Detect
-                                            </button>
+                                {/* Upload Box */}
+                                { activeTab === "upload" && (
+                                    <>
+                                        <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
+                                            {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
+                                            <input
+                                                id="file-input"
+                                                type="file"
+                                                style={{ display: 'none' }}
+                                                onChange={handleFileChange}
+                                                accept="image/*,video/mp4"
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
-                                            {!continuousMode ? (
-                                                <button
-                                                    onClick={startContinuousCapture}
-                                                    style={{ marginLeft: "10px" }}
-                                                >
-                                                    Start Continuous
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={stopContinuousCapture}
-                                                    style={{ marginLeft: "10px", background: "#ef4444", color: "#fff" }}
-                                                >
-                                                    Stop Continuous
-                                                </button>
-                                            )}
+                                {/* Camera UI */}
+                                { activeTab === "camera" && (
+                                    <>
+                                        <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
 
-                                            <button
-                                                onClick={stopCamera}
-                                                style={{ marginLeft: "10px" }}
-                                            >
-                                                Stop Camera
-                                            </button>                                            
+                                            {/* VIDEO BOX */}
+                                            <div style={{
+                                                width: "100%",
+                                                maxWidth: "500px",
+                                                height: "350px",
+                                                margin: "0 auto",
+                                                borderRadius: "10px",
+                                                overflow: "hidden",
+                                                background: "#000",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center"
+                                            }}>
+
+                                                {/* VIDEO */}
+                                                <video
+                                                    ref={videoRef}
+                                                    autoPlay
+                                                    playsInline
+                                                    style={{
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "cover",
+                                                        display: cameraOn ? "block" : "none"
+                                                    }}
+                                                />
+
+                                                {/* Placeholder when camera is OFF */}
+                                                {!cameraOn && (
+                                                    <span style={{ color: "#aaa" }}>
+                                                        Camera is OFF
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* BUTTONS */}
+                                            <div style={{ marginTop: "10px" }}>
+                                                {!cameraOn ? (
+                                                    <button onClick={startCamera}>
+                                                        Start Camera
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button onClick={captureAndSend}>
+                                                            Capture & Detect
+                                                        </button>
+
+                                                        {!continuousMode ? (
+                                                            <button
+                                                                onClick={startContinuousCapture}
+                                                                style={{ marginLeft: "10px" }}
+                                                            >
+                                                                Start Continuous
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={stopContinuousCapture}
+                                                                style={{ marginLeft: "10px", background: "#ef4444", color: "#fff" }}
+                                                            >
+                                                                Stop Continuous
+                                                            </button>
+                                                        )}
+
+                                                        <button
+                                                            onClick={stopCamera}
+                                                            style={{ marginLeft: "10px" }}
+                                                        >
+                                                            Stop Camera
+                                                        </button>                                            
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Hidden canvas */}
+                                            <canvas ref={canvasRef} style={{ display: "none" }} />
+                                        </div>
                                         </>
-                                    )}
-                                </div>
+                                )}
+                                
 
-                                {/* Hidden canvas */}
-                                <canvas ref={canvasRef} style={{ display: "none" }} />
-                            </div>
+                                {/* ------ RESULTS & STATUS ------ */}
+
+                                {loading && <div className="loading">Initiating real-time processing stream...</div>}
+
+                                {error && <div className="status danger">Error: {error}</div>}
+
+                                {result && (
+                                    <div className="result-container">
+                                        {/* Static status for images, dynamic for videos (via video feed) */}
+                                        {result.type === 'image' && (
+                                            <div className={`status ${result.violations_detected ? 'danger' : 'success'}`}>
+                                                {result.violations_detected ? 'SAFETY VIOLATION DETECTED!' : 'ALL CLEAR: NO VIOLATIONS'}
+                                            </div>
+                                        )}
+
+                                        {result.type === 'video' && (
+                                            <div className="status info">
+                                                🎥 LIVE REAL-TIME PROCESSING: REPORTING EVERY 5 FRAMES
+                                            </div>
+                                        )}
+
+                                        <div className="stats">
+                                            <div className="stat-card">
+                                                <div className="stat-label">File Type</div>
+                                                <div className="stat-value">{result.type.toUpperCase()}</div>
+                                            </div>
+                                            <div className="stat-card">
+                                                <div className="stat-label">Mode</div>
+                                                <div className="stat-value">{result.stream_url ? 'LIVE STREAM' : 'STATIC'}</div>
+                                            </div>
+                                        </div>
+
+                                        {result.type === 'image' && result.processed_image && (
+                                            <div>
+                                                <h3>Processed Image</h3>
+                                                <img src={result.processed_image} className="media-preview" alt="Result" />
+                                            </div>
+                                        )}
+
+                                        {result.type === 'video' && result.stream_url && (
+                                            <div>
+                                                <h3>Real-Time Processing Stream</h3>
+                                                <img 
+                                                    key={result.stream_url} 
+                                                    src={result.stream_url} 
+                                                    className="media-preview" 
+                                                    alt="Processing Stream" 
+                                                />
+                                                <p style={{fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
+                                                    Safety status is drawn directly on the frames above in real-time.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <h3>Technical Context</h3>
+                                        <pre>{JSON.stringify(result, null, 2)}</pre>
+                                    </div>
+                                )}
                             </>
-                    )}
-                    
+                        )}
 
-                    {/* ------ RESULTS & STATUS ------ */}
-
-                    {loading && <div className="loading">Initiating real-time processing stream...</div>}
-
-                    {error && <div className="status danger">Error: {error}</div>}
-
-                    {result && (
-                        <div className="result-container">
-                            {/* Static status for images, dynamic for videos (via video feed) */}
-                            {result.type === 'image' && (
-                                <div className={`status ${result.violations_detected ? 'danger' : 'success'}`}>
-                                    {result.violations_detected ? 'SAFETY VIOLATION DETECTED!' : 'ALL CLEAR: NO VIOLATIONS'}
+                        {mainView === 'dashboard' && (
+                            <div className="dashboard-container">
+                                <h2>Real-Time Person Tracking Logs</h2>
+                                
+                                <div className="filter-container">
+                                    <label htmlFor="id-filter" style={{fontSize: '0.9rem', color: '#64748b'}}>Filter by Global ID:</label>
+                                    <input 
+                                        id="id-filter"
+                                        type="text" 
+                                        className="filter-input" 
+                                        placeholder="Enter Global ID..."
+                                        value={filterId}
+                                        onChange={(e) => setFilterId(e.target.value)}
+                                    />
                                 </div>
-                            )}
 
-                            {result.type === 'video' && (
-                                <div className="status info">
-                                    🎥 LIVE REAL-TIME PROCESSING: REPORTING EVERY 5 FRAMES
-                                </div>
-                            )}
-
-                            <div className="stats">
-                                <div className="stat-card">
-                                    <div className="stat-label">File Type</div>
-                                    <div className="stat-value">{result.type.toUpperCase()}</div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-label">Mode</div>
-                                    <div className="stat-value">{result.stream_url ? 'LIVE STREAM' : 'STATIC'}</div>
+                                {isFetchingDashboard ? (
+                                    <div className="loading">Refreshing joined data from database...</div>
+                                ) : (
+                                    <table className="dashboard-table">
+                                        <thead>
+                                            <tr>
+                                                <th className="sortable" onClick={() => requestSort('person_id')}>
+                                                    Global ID <span className="sort-icon">{getSortIcon('person_id')}</span>
+                                                </th>
+                                                <th className="sortable" onClick={() => requestSort('total_emails')}>
+                                                    Alert Count <span className="sort-icon">{getSortIcon('total_emails')}</span>
+                                                </th>
+                                                <th className="sortable" onClick={() => requestSort('last_seen')}>
+                                                    Last Seen <span className="sort-icon">{getSortIcon('last_seen')}</span>
+                                                </th>
+                                                <th>First Sighting</th>
+                                                <th>Last Alert Event</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {[...dashboardData]
+                                            .filter(row => {
+                                                const searchStr = filterId.toLowerCase();
+                                                const plainId = row.person_id.toString();
+                                                const fullId = `person #${plainId}`.toLowerCase();
+                                                return filterId === "" || plainId.includes(searchStr) || fullId.includes(searchStr);
+                                            })
+                                            .sort((a, b) => {
+                                                if (a[sortConfig.key] < b[sortConfig.key]) {
+                                                    return sortConfig.direction === 'asc' ? -1 : 1;
+                                                }
+                                                if (a[sortConfig.key] > b[sortConfig.key]) {
+                                                    return sortConfig.direction === 'asc' ? 1 : -1;
+                                                }
+                                                return 0;
+                                            })
+                                            .length > 0 ? [...dashboardData]
+                                            .filter(row => {
+                                                const searchStr = filterId.toLowerCase();
+                                                const plainId = row.person_id.toString();
+                                                const fullId = `person #${plainId}`.toLowerCase();
+                                                return filterId === "" || plainId.includes(searchStr) || fullId.includes(searchStr);
+                                            })
+                                            .sort((a, b) => {
+                                                if (a[sortConfig.key] < b[sortConfig.key]) {
+                                                    return sortConfig.direction === 'asc' ? -1 : 1;
+                                                }
+                                                if (a[sortConfig.key] > b[sortConfig.key]) {
+                                                    return sortConfig.direction === 'asc' ? 1 : -1;
+                                                }
+                                                return 0;
+                                            })
+                                            .map((row, idx) => (
+                                                <tr key={idx}>
+                                                    <td><span className="badge badge-id">Person #{row.person_id}</span></td>
+                                                    <td><span className="badge badge-count">{row.total_emails} Emails</span></td>
+                                                    <td style={{fontSize: '0.8rem'}}><span className="badge badge-time">{row.last_seen}</span></td>
+                                                    <td style={{fontSize: '0.8rem'}}>{row.first_seen}</td>
+                                                    <td style={{fontSize: '0.8rem'}}>{row.email_sent_event || row.last_email_aggregate || 'None'}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan="5" style={{textAlign: 'center', padding: '2rem', color: '#64748b'}}>
+                                                        {filterId === "" ? "No tracking data found in database yet." : `No results for Global ID "${filterId}"`}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                                <div style={{textAlign: 'center', marginTop: '1rem'}}>
+                                    <button onClick={loadDashboard}>Refresh Data</button>
                                 </div>
                             </div>
-
-                            {result.type === 'image' && result.processed_image && (
-                                <div>
-                                    <h3>Processed Image</h3>
-                                    <img src={result.processed_image} className="media-preview" alt="Result" />
-                                </div>
-                            )}
-
-                            {result.type === 'video' && result.stream_url && (
-                                <div>
-                                    <h3>Real-Time Processing Stream</h3>
-                                    <img 
-                                        key={result.stream_url} 
-                                        src={result.stream_url} 
-                                        className="media-preview" 
-                                        alt="Processing Stream" 
-                                    />
-                                    <p style={{fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
-                                        Safety status is drawn directly on the frames above in real-time.
-                                    </p>
-                                </div>
-                            )}
-
-                            <h3>Technical Context</h3>
-                            <pre>{JSON.stringify(result, null, 2)}</pre>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             );
         }
