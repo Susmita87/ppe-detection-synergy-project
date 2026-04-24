@@ -13,22 +13,31 @@ class PersonDatabase:
 
     def create_table(self):
         cursor = self.conn.cursor()
+        # 1. Person Table: Persistent identity and aggregate stats
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS persons (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 embedding BLOB NOT NULL,
+                email_count INTEGER DEFAULT 0,
+                last_email_sent TIMESTAMP
+            )
+        ''')
+        
+        # 2. Notification Details: Individual sightings and email events
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS notification_details (
+                person_id INTEGER,
                 first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_email_sent_at TIMESTAMP,
-                email_count INTEGER DEFAULT 0,
-                metadata TEXT
+                email_sent TIMESTAMP,
+                FOREIGN KEY(person_id) REFERENCES persons(id)
             )
         ''')
         self.conn.commit()
 
     def save_person(self, embedding, metadata=None):
         """
-        Saves a new person embedding.
+        Saves a new person embedding and creates an initial sighting record.
         embedding: numpy array or list
         """
         try:
@@ -36,42 +45,75 @@ class PersonDatabase:
                 embedding = np.array(embedding, dtype=np.float32)
             
             embedding_bytes = embedding.tobytes()
-            metadata_json = json.dumps(metadata) if metadata else None
             
             cursor = self.conn.cursor()
+            # Insert into persons table
             cursor.execute('''
-                INSERT INTO persons (embedding, metadata)
-                VALUES (?, ?)
-            ''', (embedding_bytes, metadata_json))
+                INSERT INTO persons (embedding)
+                VALUES (?)
+            ''', (embedding_bytes,))
+            person_id = cursor.lastrowid
+            
+            # Create initial sighting in notification_details
+            cursor.execute('''
+                INSERT INTO notification_details (person_id, first_seen, last_seen)
+                VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ''', (person_id,))
+            
             self.conn.commit()
-            last_id = cursor.lastrowid
-            print(f"DATABASE: Successfully saved person with Global ID {last_id}")
-            return last_id
+            print(f"DATABASE: Successfully saved person with Global ID {person_id}")
+            return person_id
         except Exception as e:
             print(f"DATABASE ERROR in save_person: {e}")
             self.conn.rollback()
             return None
 
     def update_last_seen(self, person_id):
+        """Updates the last_seen timestamp in notification_details for the most recent entry of this person."""
         cursor = self.conn.cursor()
         cursor.execute('''
-            UPDATE persons SET last_seen = CURRENT_TIMESTAMP WHERE id = ?
-        ''', (person_id,))
+            UPDATE notification_details 
+            SET last_seen = CURRENT_TIMESTAMP 
+            WHERE person_id = ? AND rowid = (
+                SELECT MAX(rowid) FROM notification_details WHERE person_id = ?
+            )
+        ''', (person_id, person_id))
         self.conn.commit()
 
     def update_email_alert_status(self, person_id):
+        """Updates aggregate stats in persons and logs a NEW email event in notification_details."""
         cursor = self.conn.cursor()
+        # 1. Update aggregate in persons
         cursor.execute('''
             UPDATE persons 
-            SET last_email_sent_at = CURRENT_TIMESTAMP, 
+            SET last_email_sent = CURRENT_TIMESTAMP, 
                 email_count = email_count + 1 
             WHERE id = ?
         ''', (person_id,))
+        
+        # 2. Create a NEW record in notification_details for this email event
+        # We inherit the latest seen timestamps to keep context for the notification
+        cursor.execute('''
+            INSERT INTO notification_details (person_id, first_seen, last_seen, email_sent)
+            SELECT person_id, first_seen, last_seen, CURRENT_TIMESTAMP
+            FROM notification_details
+            WHERE person_id = ?
+            ORDER BY rowid DESC
+            LIMIT 1
+        ''', (person_id,))
+        
+        # Fallback if somehow no record exists yet
+        if cursor.rowcount == 0:
+            cursor.execute('''
+                INSERT INTO notification_details (person_id, email_sent)
+                VALUES (?, CURRENT_TIMESTAMP)
+            ''', (person_id,))
+            
         self.conn.commit()
 
     def get_email_status(self, person_id):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT last_email_sent_at, email_count FROM persons WHERE id = ?', (person_id,))
+        cursor.execute('SELECT last_email_sent, email_count FROM persons WHERE id = ?', (person_id,))
         row = cursor.fetchone()
         if row:
             return {"last_sent": row[0], "count": row[1]}
@@ -79,15 +121,14 @@ class PersonDatabase:
 
     def get_all_persons(self):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT id, embedding, metadata FROM persons')
+        cursor.execute('SELECT id, embedding FROM persons')
         rows = cursor.fetchall()
         
         persons = []
         for row in rows:
             persons.append({
                 "id": row[0],
-                "embedding": np.frombuffer(row[1], dtype=np.float32),
-                "metadata": json.loads(row[2]) if row[2] else {}
+                "embedding": np.frombuffer(row[1], dtype=np.float32)
             })
         return persons
 
