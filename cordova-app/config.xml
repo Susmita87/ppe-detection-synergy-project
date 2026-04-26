@@ -10,7 +10,13 @@
     <content src="index.html" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
+    <allow-intent href="https://unpkg.com/*" />
+    <allow-navigation href="https://unpkg.com/*" />
     <platform name="android">
+        <preference name="android-minSdkVersion" value="21" />
+        <preference name="AndroidInsecureFileModeEnabled" value="true" />
+        <preference name="serviceworker" value="false" />
+        <preference name="ResolveServiceWorkerRequests" value="false" />
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.CAMERA" />
             <uses-permission android:name="android.permission.INTERNET" />
