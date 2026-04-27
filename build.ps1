@@ -1,8 +1,8 @@
 # PPE Detection - Fast Build Script
-# This script uses Docker build cache for faster rebuilds
+# TODO : Remove --no-cache for faster rebuilds in subsequent runs
 
 Write-Host "Building PPE Detection Backend..." -ForegroundColor Green
-docker-compose build backend
+docker-compose build backend --no-cache
 
 Write-Host "Building UI Services..." -ForegroundColor Green
 docker-compose build ui edge-device-ui

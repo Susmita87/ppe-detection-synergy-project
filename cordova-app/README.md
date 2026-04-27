@@ -84,6 +84,9 @@ Look for "IPv4 Address" under your network adapter.
 - Switch to "Upload" tab
 - Tap the upload area to select image/video files
 - The app will process and display results
+- View → Tool Windows → Device File Explorer
+- During testing - upload file into Android studio manually
+- View → Tool Windows → Device File Explorer -> /storage/emulated/0/Download -> right click -> upload
 
 ### Settings
 - Configure server connection

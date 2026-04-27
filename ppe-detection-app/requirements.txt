@@ -1,11 +1,12 @@
---index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+numpy==1.26.4
 torch==2.0.1
 torchvision==0.15.2
---index-url https://pypi.org/simple
+
 ultralytics
 fastapi
 uvicorn
 opencv-python-headless
-numpy
 requests
 python-multipart
