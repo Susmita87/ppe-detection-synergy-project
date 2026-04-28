@@ -2,6 +2,13 @@
 
 This is the mobile application for the PPE Detection system, built using Apache Cordova. It allows users to perform real-time PPE detection using their mobile device's camera, connecting to the backend server.
 
+[![Python](https://img.shields.io/badge/Python-3.10-blue)](#)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)](#)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue)](#)
+[![Cordova](https://img.shields.io/badge/Cordova-Mobile-orange)](#)
+[![Android](https://img.shields.io/badge/Android-APK-brightgreen)](#)
+[![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey)](#)
+
 ## Features
 
 - **Camera Integration**: Use device camera for real-time PPE detection
@@ -10,11 +17,25 @@ This is the mobile application for the PPE Detection system, built using Apache 
 - **Mobile Optimized**: Responsive UI designed for mobile devices
 - **Offline Capable**: Basic functionality works offline, syncs when connected
 
+## Overview
+
+End-to-end PPE detection system using:
+
+- Cordova Mobile App
+- FastAPI Backend (YOLO model)
+- Docker deployment
+- Camera + Upload support
+
+## Architecture
+
+Mobile App → FastAPI → YOLO Model → Detection Output
+
 ## Prerequisites
 
 - Node.js and npm (for Cordova CLI)
 - Java JDK 11+ (for Android builds)
 - Android Studio with Android SDK (for APK generation)
+- Cordova CLI
 
 ## Setup
 

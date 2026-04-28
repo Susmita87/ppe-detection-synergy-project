@@ -24,6 +24,86 @@
 
         function CameraView({ API_BASE, result, setResult }) {
 
+            const videoRef = React.useRef(null);
+            const canvasRef = React.useRef(null);
+
+            const [cameraOn, setCameraOn] = React.useState(false);
+            const [continuousMode, setContinuousMode] = React.useState(false);
+
+            let intervalRef = null;
+
+            async function startCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+                    videoRef.current.srcObject = stream;
+                    setCameraOn(true);
+
+                } catch (err) {
+                    alert("Camera access failed: " + err.message);
+                }
+            }
+
+            function stopCamera() {
+                const stream = videoRef.current.srcObject;
+
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                setCameraOn(false);
+                stopContinuousCapture();
+            }
+
+            async function captureAndSend() {
+                const video = videoRef.current;
+                const canvas = canvasRef.current;
+
+                const ctx = canvas.getContext('2d');
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                ctx.drawImage(video, 0, 0);
+
+                canvas.toBlob(async (blob) => {
+
+                    const formData = new FormData();
+                    formData.append('file', blob, 'frame.jpg');
+
+                    try {
+                        const res = await fetch(API_BASE + '/predict', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await res.json();
+                        setResult(data);
+
+                    } catch (err) {
+                        console.log(err);
+                    }
+
+                }, 'image/jpeg', 0.8);
+            }
+
+            function startContinuousCapture() {
+                setContinuousMode(true);
+
+                intervalRef = setInterval(() => {
+                    captureAndSend();
+                }, 2000); // every 2 sec
+            }
+
+            function stopContinuousCapture() {
+                setContinuousMode(false);
+
+                if (intervalRef) {
+                    clearInterval(intervalRef);
+                    intervalRef = null;
+                }
+            }
+
             function captureImage() {
                 if (!navigator.camera) {
                     alert("Camera not available. Check plugin/deviceready.");
@@ -31,47 +111,61 @@
                 }
 
                 navigator.camera.getPicture(
-                    function (imageData) {
-                        // 🔥 IMPORTANT: normal function (NOT async)
-                        handleCameraSuccess(imageData);
+                    function (imageURI) {
+
+                        // FIX: convert URI → blob correctly
+                        window.resolveLocalFileSystemURL(imageURI, function (fileEntry) {
+
+                            fileEntry.file(function (file) {
+
+                                const reader = new FileReader();
+
+                                reader.onloadend = async function () {
+
+                                    const blob = new Blob(
+                                        [new Uint8Array(this.result)],
+                                        { type: 'image/jpeg' }
+                                    );
+
+                                    const formData = new FormData();
+                                    formData.append('file', blob, 'camera.jpg');
+
+                                    try {
+                                        const res = await fetch(API_BASE + '/predict', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+
+                                        const data = await res.json();
+                                        console.log("RESULT:", data);
+                                        setResult(data);
+
+                                    } catch (err) {
+                                        alert("Upload error: " + err.message);
+                                    }
+                                };
+
+                                reader.readAsArrayBuffer(file);
+
+                            });
+
+                        }, function (err) {
+                            alert("File resolve failed: " + err.code);
+                        });
+
                     },
                     function (err) {
                         alert("Camera failed: " + err);
                     },
                     {
-                        quality: 50,
-                        destinationType: Camera.DestinationType.DATA_URL,
+                        quality: 80,
+                        destinationType: Camera.DestinationType.FILE_URI,
                         encodingType: Camera.EncodingType.JPEG,
                         correctOrientation: true,
                         targetWidth: 1024,
                         targetHeight: 1024
                     }
                 );
-            }
-
-            async function handleCameraSuccess(imageData) {
-                try {
-                    const base64Image = "data:image/jpeg;base64," + imageData; // 🔥 ADD THIS
-
-                    const res = await fetch(API_BASE + '/predict', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            image: base64Image
-                        })
-                    });
-
-                    const text = await res.text();
-                    console.log("RAW:", text);
-
-                    const data = JSON.parse(text);
-                    setResult(data);
-
-                } catch (err) {
-                    alert("Error: " + err.message);
-                }
             }
 
             return cElement('div', {}, [
@@ -90,7 +184,6 @@
                     }
                 }, 'Capture Image'),
 
-                // reuse same rendering as Upload
                 result && cElement('p', { key: 's' },
                     result.violations_detected ? '⚠️ Violation' : '✅ Safe'
                 ),
@@ -100,52 +193,25 @@
                         result.processed_image.startsWith("data:")
                             ? result.processed_image
                             : "data:image/jpeg;base64," + result.processed_image;
-
                     return cElement('img', {
                         key: 'img',
                         src: imageSrc,
                         style: { width: '100%', marginTop: '10px' }
                     });
-                })()
+                })(),
+
+                // small JSON summary
+                result && cElement('pre', {
+                    key: 'json',
+                    style: { fontSize: '10px', color: '#0f0', maxHeight: '120px', overflow: 'auto' }
+                }, JSON.stringify({
+                    total_detections: result.total_detections,
+                    violations_detected: result.violations_detected
+                }, null, 2))
             ]);
         }
 
-        function captureImage() {
-            navigator.camera.getPicture(
-                async function (imageData) {
-                    // imageData = base64 string (NO prefix)
 
-                    try {
-                        const res = await fetch(API_BASE + '/predict', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                image: imageData
-                            })
-                        });
-
-                        const text = await res.text();
-                        let data = JSON.parse(text);
-
-                        setResult(data); // reuse your existing UI
-
-                    } catch (err) {
-                        alert("Error: " + err.message);
-                    }
-                },
-                function (err) {
-                    alert("Camera failed: " + err);
-                },
-                {
-                    quality: 50,
-                    destinationType: Camera.DestinationType.DATA_URL,
-                    encodingType: Camera.EncodingType.JPEG,
-                    correctOrientation: true
-                }
-            );
-        }
 
         //end camera capture
 
