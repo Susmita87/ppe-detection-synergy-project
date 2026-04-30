@@ -20,6 +20,7 @@ from app.config import (
     BASE_URL
 )
 from dotenv import load_dotenv
+from model import base_model
 
 load_dotenv()
 
@@ -85,7 +86,6 @@ def is_image(filename):
 def is_video(filename):
     return filename.lower().endswith((".mp4", ".avi", ".mov"))
 
-
 # Image Processing
 async def process_image(file: UploadFile):
     image_bytes = await file.read()
@@ -96,8 +96,21 @@ async def process_image(file: UploadFile):
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     result = predict(img)
+
+    # Safe Case 
+    if not result["violations_detected"]:
+        print("Scene is SAFE (no violations detected)")
+
+        _, buffer = cv2.imencode('.jpg', img)
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        return {
+            "type": "image", "status": "SAFE", "violations_detected": False,
+            "detection": [], 
+            "processed_image": f"data:image/jpeg;base64,{img_base64}"
+        }
     
-    # RE-ID Logic for singular image
+    # RE-ID Logic for singular image for unsafe case
     for det in result["detections"]:
         if det["class_id"] == PERSON_CLASS_ID:
             emb = det.get("embedding")
@@ -131,10 +144,11 @@ async def process_image(file: UploadFile):
                 violation_summary.append(f"- Person REID:{gid} is missing: {', '.join(missing)}")
                 if isinstance(gid, int):
                     db.update_email_alert_status(gid)
-        
-        email_msg = "PPE Violation(s) Detected in Uploaded Image:\n\n" + "\n".join(violation_summary)
-        print(f"Sending email alert for image violation: {email_msg}")
-        send_email_alert(img, email_msg)
+
+        if violation_summary:
+            email_msg = "PPE Violation(s) Detected in Uploaded Image:\n\n" + "\n".join(violation_summary)
+            print(f"Sending email alert for image violation: {email_msg}")
+            send_email_alert(img, email_msg)
 
     #  Encode into base64 for direct return
     _, buffer = cv2.imencode('.jpg', img)
@@ -154,8 +168,8 @@ def gen_frames(video_path):
     current_status = "SAFE"
     status_color = (0, 255, 0)
 
-    violation_start_time = None
-    violation_threshold = VIOLATION_WAIT_TIME
+    #violation_start_time = None
+    violation_threshold = VIOLATION_WAIT_TIME # time to wait before sending alert
     alerted_ids = set() # Track IDs for which email has already been sent
     id_violation_starts = {} # track_id -> first_time_seen_violating
     
@@ -171,34 +185,48 @@ def gen_frames(video_path):
         if not success:
             break
 
-        current_time = time.time()
-        
+
         #  Inference every Nth frame
         if frame_count % INFERENCE_INTERVAL == 0:
+
             result = predict(frame, persist=True)
             current_detections = result["detections"]
-            
-            # Persistent RE-ID Logic
-            for det in current_detections:
-                tid = det.get("track_id")
-                if tid is not None and det["class_id"] == PERSON_CLASS_ID:
-                    if tid not in track_to_global:
-                        emb = det.get("embedding")
-                        if emb:
-                            gid, sim = db.find_match(emb)
-                            if gid:
-                                print(f"RE-ID: Matched track {tid} to Global ID {gid} (sim: {sim:.3f})")
-                                track_to_global[tid] = gid
-                                db.update_last_seen(gid)
-                            else:
-                                gid = db.save_person(emb, metadata={"source": video_path})
-                                print(f"RE-ID: New person detected, assigned Global ID {gid}")
-                                track_to_global[tid] = gid
-                    
-                    det["global_id"] = track_to_global.get(tid)
-            
-            if result["violations_detected"]:
+
+            # SAFE CASE
+            if not result["violations_detected"]:
+                # No violation detected
+                current_status = "SAFE"
+                status_color = (0, 255, 0)
+
+                current_detections = []  
+                id_violation_starts = {}
+                alerted_ids = set()
+
+            else:
+                # VIOLATION CASE
                 current_time = time.time()
+            
+                # Persistent RE-ID Logic
+                for det in current_detections:
+                    tid = det.get("track_id")
+                    if tid is not None and det["class_id"] == PERSON_CLASS_ID:
+                        if tid not in track_to_global:
+                            emb = det.get("embedding")
+                            if emb:
+                                gid, sim = db.find_match(emb)
+                                if gid:
+                                    print(f"RE-ID: Matched track {tid} to Global ID {gid} (sim: {sim:.3f})")
+                                    track_to_global[tid] = gid
+                                    db.update_last_seen(gid)
+                                else:
+                                    gid = db.save_person(emb, metadata={"source": video_path})
+                                    print(f"RE-ID: New person detected, assigned Global ID {gid}")
+                                    track_to_global[tid] = gid
+                        
+                        det["global_id"] = track_to_global.get(tid)
+            
+                # if result["violations_detected"]:
+                #     current_time = time.time()
                 
                 # Identify currently violating persons
                 current_violating_ids = {det["track_id"] for det in current_detections 
@@ -252,11 +280,11 @@ def gen_frames(video_path):
                     
                     # Mark as alerted
                     alerted_ids.update(new_alerts_to_send)
-            else:
-                # Reset all timers if total safety
-                id_violation_starts = {}
-                current_status = "SAFE"
-                status_color = (0, 255, 0)
+            # else:
+            #     # Reset all timers if total safety
+            #     id_violation_starts = {}
+            #     current_status = "SAFE"
+            #     status_color = (0, 255, 0)
 
 
             
