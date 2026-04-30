@@ -98,6 +98,7 @@ ppe-detection-app/
 - **best-v3.pt**: YOLOv8-based variant.
 - **best-v4-freeze9.pt**: Fine-tuned for 150 epochs with 9 layers frozen.
 - **best-v2.pt**: Fine-tuned for 150 epochs with 5 layers frozen.
+- **best-stage2-v8.pt**: (Recommended) Fine-tuned in 2 stages: 1st stage frozen backbone (10 layers) for 20 epochs, 2nd stage unfreezed all layers for 100 epochs. Best recall so far for YOLOv8 variant.
 
 ---
 *Developed for the IITB-AIMLPractice-Project.*
