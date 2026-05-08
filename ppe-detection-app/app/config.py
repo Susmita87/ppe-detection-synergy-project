@@ -42,10 +42,19 @@ VIOLATION_WAIT_TIME = 0.3  # Seconds to wait before alerting for violation in vi
 DB_PATH = os.path.join(BASE_DIR, "..", "database", "embeddings.db")
 
 # VLM Settings
-VLM_MODEL_ID = "openai/clip-vit-base-patch32"
+# VLM_MODEL_ID = "openai/clip-vit-base-patch32"
+VLM_MODEL_ID = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "siglip2-base-patch32-256")
+# VLM_PROMPTS = {
+#     "hardhat": ["a person wearing a hardhat", "a person without a hardhat"],
+#     "vest": ["a person wearing a safety vest", "a person without a safety vest"]
+# }
 VLM_PROMPTS = {
-    "hardhat": ["a person wearing a hardhat", "a person without a hardhat"],
-    "vest": ["a person wearing a safety vest", "a person without a safety vest"]
+    "hardhat": ["a construction worker wearing a hard hat or helmet on their head", 
+                "a construction worker with no helmet, bare head, no hard hat"
+                ],
+    "vest": ["a worker wearing a bright reflective safety vest or high visibility jacket", 
+             "a worker wearing regular clothes with no safety vest or high visibility clothing"
+             ]
 }
 VLM_CONF_THRESHOLD = 0.5
 

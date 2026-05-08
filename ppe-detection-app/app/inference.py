@@ -48,6 +48,9 @@ def predict(image, persist=False):
     Run inference on input image and return structured results.
     If persist=True, uses tracking with RE-ID.
     """
+    frame_num = 0
+    frame_num += 1
+
     if persist:
         if not os.path.exists(TRACKER_CONFIG):
             print(f"ERROR: Tracker config not found at {TRACKER_CONFIG}")
@@ -101,7 +104,9 @@ def predict(image, persist=False):
 
                 if PIPELINE_MODE == "VLM":
                     # --- VLM PIPEINE: VLM (CLIP) → validate PPE ---
-                    vlm_results = vlm_validator.validate_ppe(crop)
+                    # vlm_results = vlm_validator.validate_ppe(crop)
+                    # Using SigLIP + CLAHE
+                    vlm_results = vlm_validator.validate_ppe(crop, track_id=base_person_det["track_id"],frame_num=frame_num)
                     
                     # Map VLM results to detections
                     # Hardhat validation
