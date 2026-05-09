@@ -13,3 +13,4 @@ transformers
 ftfy
 regex
 tqdm
+mlflow
