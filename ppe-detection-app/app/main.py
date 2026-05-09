@@ -22,8 +22,13 @@ from app.config import (
 from dotenv import load_dotenv
 
 load_dotenv()
+from app.model import init_models
 
 app = FastAPI(title="PPE Detection API")
+
+@app.on_event("startup")
+async def startup_event():
+    init_models()
 
 # Mount static directory for processed results (preserved for images)
 os.makedirs(STATIC_DIR, exist_ok=True)

@@ -9,9 +9,12 @@ fi
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-echo "Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+echo "Checking dependencies..."
+# Only install if requirements.txt is newer than the venv or first run
+if [ requirements.txt -nt venv/.pip-lock ]; then
+    pip install -r requirements.txt
+    touch venv/.pip-lock
+fi
 
 # Cleanup existing processes on ports 8000 and 3000
 echo "Clearing ports 8000 and 3000..."

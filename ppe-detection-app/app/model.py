@@ -1,6 +1,9 @@
 import os
 import mlflow
 from ultralytics import YOLO
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def load_yolo_model(model_path):
     """
@@ -16,15 +19,40 @@ def load_yolo_model(model_path):
         try:
             local_path = mlflow.artifacts.download_artifacts(artifact_uri=model_path, dst_path=download_dir)
             print(f"Model downloaded to: {local_path}")
-            return YOLO(local_path)
+            
+            # Verify the model can be loaded
+            try:
+                return YOLO(local_path)
+            except Exception as e:
+                print(f"WARNING: Downloaded model is corrupted or invalid ({e}). Falling back to local model...")
+                return YOLO("weights/best-stage2-latest.pt") # Fallback to a known local file
         except Exception as e:
-            print(f"Failed to download MLflow artifact: {e}")
-            raise
+            print(f"WARNING: Failed to download MLflow artifact ({e}). Falling back to local model...")
+            return YOLO("weights/best-stage2-latest.pt")
     else:
         return YOLO(model_path)
 
-PPE_MODEL_PATH = os.getenv("PPE_MODEL_PATH", "weights/best-stage2.pt")
-BASE_YOLO_PATH = "weights/yolo11s.pt"
+# Initialize models as None; they will be loaded during startup
+model = None
+base_model = None
 
-model = load_yolo_model(PPE_MODEL_PATH)
-base_model = YOLO(BASE_YOLO_PATH)
+from app.config import PIPELINE_MODE
+
+def init_models():
+    """
+    Called during app startup to initialize models.
+    """
+    global model, base_model
+    
+    PPE_MODEL_PATH = os.getenv("PPE_MODEL_PATH", "weights/best-stage2.pt")
+    BASE_YOLO_PATH = "weights/yolo11s.pt"
+    
+    if PIPELINE_MODE != "VLM":
+        print(f"Initializing PPE Detection Model: {PPE_MODEL_PATH}")
+        model = load_yolo_model(PPE_MODEL_PATH)
+    else:
+        print(f"Skipping PPE model loading (PIPELINE_MODE={PIPELINE_MODE})")
+    
+    print(f"Initializing Base YOLO Model: {BASE_YOLO_PATH}")
+    base_model = YOLO(BASE_YOLO_PATH)
+    print("All models loaded successfully!")
