@@ -27,3 +27,6 @@ __pycache__/
 # Database
 **/*.db
 database/
+
+# Weights - Downloaded from MLflow
+**/weights/mlflow_downloads/
