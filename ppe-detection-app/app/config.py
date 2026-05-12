@@ -57,6 +57,7 @@ VLM_PROMPTS = {
              ]
 }
 VLM_CONF_THRESHOLD = 0.5
+LOW_LIGHT_THRESHOLD = 100  # Brightness threshold (0-255) for applying CLAHE
 
 # Email Settings
 SMTP_SERVER = "smtp.gmail.com"

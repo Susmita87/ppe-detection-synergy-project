@@ -1,4 +1,4 @@
-from app.model import model, base_model
+import app.model as ppe_models
 from app.config import (
     CONF_THRESHOLD,
     CONF_IOU,
@@ -48,6 +48,13 @@ def predict(image, persist=False):
     Run inference on input image and return structured results.
     If persist=True, uses tracking with RE-ID.
     """
+    # Safety Check: Ensure models are loaded
+    if ppe_models.base_model is None:
+        raise RuntimeError("Base YOLO model is not loaded yet. Please wait for startup initialization.")
+    
+    if PIPELINE_MODE != "VLM" and ppe_models.model is None:
+        raise RuntimeError("PPE Stage 2 model is still downloading/loading. Please wait.")
+
     frame_num = 0
     frame_num += 1
 
@@ -55,9 +62,9 @@ def predict(image, persist=False):
         if not os.path.exists(TRACKER_CONFIG):
             print(f"ERROR: Tracker config not found at {TRACKER_CONFIG}")
             # Fallback to default or raise
-        base_results = base_model.track(image, persist=True, tracker=TRACKER_CONFIG, conf=CONF_THRESHOLD, embed=None)
+        base_results = ppe_models.base_model.track(image, persist=True, tracker=TRACKER_CONFIG, conf=CONF_THRESHOLD, embed=None)
     else:
-        base_results = base_model(image, conf=CONF_THRESHOLD, embed=None)
+        base_results = ppe_models.base_model(image, conf=CONF_THRESHOLD, embed=None)
 
     detections = []
     
@@ -152,7 +159,7 @@ def predict(image, persist=False):
 
                 else:
                     # --- LEGACY PIPELINE: YOLO Stage 2 ---
-                    results = model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
+                    results = ppe_models.model(crop, conf=CONF_THRESHOLD, iou=CONF_IOU, imgsz=CONF_IMGZ)
                     
                     ppe_person_found = False
                     for r in results:

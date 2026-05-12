@@ -60,9 +60,18 @@ class VLMValidator:
         
         # Convert numpy array (OpenCV format BGR) to PIL Image (RGB)
         if isinstance(crop_image, np.ndarray):
-            print(f"Crop shape before CLAHE: {crop_image.shape}")
-            crop_image = self._enhance_crop(crop_image)
-            print(f"CLAHE applied ✅") 
+            from app.config import LOW_LIGHT_THRESHOLD
+            
+            # Detect low light by checking average grayscale intensity
+            gray = cv2.cvtColor(crop_image, cv2.COLOR_BGR2GRAY)
+            avg_brightness = np.mean(gray)
+            
+            if avg_brightness < LOW_LIGHT_THRESHOLD:
+                print(f"Low light detected ({avg_brightness:.1f} < {LOW_LIGHT_THRESHOLD}). Applying CLAHE...")
+                crop_image = self._enhance_crop(crop_image)
+            else:
+                print(f"Good lighting detected ({avg_brightness:.1f} >= {LOW_LIGHT_THRESHOLD}). Skipping CLAHE.")
+            
             crop_image = Image.fromarray(crop_image[:, :, ::-1])
 
         results = {}
