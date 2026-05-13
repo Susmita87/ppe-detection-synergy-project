@@ -47,7 +47,8 @@ VLM_PROMPTS = {
     "hardhat": ["a person wearing a hardhat", "a person without a hardhat"],
     "vest": ["a person wearing a safety vest", "a person without a safety vest"]
 }
-VLM_CONF_THRESHOLD = 0.5
+VLM_CONF_THRESHOLD = 0.6
+LOW_LIGHT_THRESHOLD = 100
 
 # Email Settings
 SMTP_SERVER = "smtp.gmail.com"
