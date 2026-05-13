@@ -29,7 +29,7 @@ graph TD
     subgraph "VLM Mode (Hybrid)"
         C -- "VLM" --> V1[YOLO: Fast Person Detection]
         V1 --> V2[Crop ROI]
-        V2 --> V_CLAHE[Adaptive CLAHE Enhancement(Conditional)]
+        V2 --> V_CLAHE[Adaptive CLAHE Enhancement - Conditional]
         V_CLAHE --> V3[VLM Validator: CLIP Semantic Check]
     end
     
@@ -59,6 +59,10 @@ graph TD
     *   **Low-Light Detection**: Automatically calculates average pixel intensity for every detected person.
     *   **Conditional Enhancement**: If brightness falls below the `LOW_LIGHT_THRESHOLD` (default: 100), the system applies **Contrast Limited Adaptive Histogram Equalization (CLAHE)** to the crop.
     *   **Benefit**: Significantly improves PPE detection accuracy in shadowed areas or low-light CCTV footage without over-processing well-lit frames.
+5.  **Dynamic Model Management (MLflow)**:
+    *   **Remote Artifacts**: Supports fetching latest model weights directly from MLflow/DagsHub artifact repositories.
+    *   **Automatic Fallback**: If the remote download fails or the file is corrupted, the system automatically reverts to the last known stable local weight file (`weights/best-stage2.pt`).
+    *   **Lazy Loading**: Models are initialized asynchronously during app startup to ensure the API remains responsive.
 
 ## 🛠️ Setup & Configuration
 
@@ -75,6 +79,15 @@ VLM_PROMPTS = {
 LOW_LIGHT_THRESHOLD = 100 # Threshold (0-255) to trigger CLAHE enhancement
 ```
 
+### MLflow Model Configuration
+To use a managed model from MLflow, set the path in your `.env` file:
+```bash
+# .env
+PPE_MODEL_PATH="mlflow-artifacts:/path/to/your/model.pt"
+MLFLOW_TRACKING_URI="https://dagshub.com/YourUser/YourRepo.mlflow"
+```
+The app will automatically download and cache the model in `weights/mlflow_downloads/`.
+
 ### Local Execution
 ```bash
 cd ppe-detection-synergy-project/ppe-detection-app
@@ -88,11 +101,13 @@ ppe-detection-app/
 ├── app/
 │   ├── main.py          # FastAPI application & MJPEG Streamer
 │   ├── inference.py     # Main Logic: High-level pipeline controller
-│   ├── vlm_validator.py # NEW: CLIP-based VLM validation logic
+│   ├── model.py         # NEW: Dynamic model loading engine (Local/MLflow)
+│   ├── vlm_validator.py # CLIP/SigLIP-based VLM validation logic
 │   ├── extractor.py     # MobileNetV3 Feature Extraction
 │   ├── database.py      # SQLite ReID layer
 │   └── config.py        # Mode Toggle (LEGACY/VLM) & Prompts
-├── weights/             # YOLOv11/v8 Model Weights
+├── weights/             # YOLO Model Weights
+│   └── mlflow_downloads/# Cache for models fetched from MLflow
 ├── static_results/      # Snapshots of detected violations
 └── run_local.sh         # Shell script to boot all services
 ```
