@@ -29,7 +29,8 @@ graph TD
     subgraph "VLM Mode (Hybrid)"
         C -- "VLM" --> V1[YOLO: Fast Person Detection]
         V1 --> V2[Crop ROI]
-        V2 --> V3[VLM Validator: CLIP Semantic Check]
+        V2 --> V_CLAHE[Adaptive CLAHE Enhancement(Conditional)]
+        V_CLAHE --> V3[VLM Validator: CLIP Semantic Check]
     end
     
     L3 --> D[Rule Engine]
@@ -54,6 +55,10 @@ graph TD
 3.  **State Management**:
     *   **SQL Persistence**: Tracks `global_id` assignments and alert history.
     *   **Violation Buffering**: Implements a time-threshold logic to avoid spamming alerts for transient occlusions.
+4.  **Adaptive Image Enhancement (CLAHE)**:
+    *   **Low-Light Detection**: Automatically calculates average pixel intensity for every detected person.
+    *   **Conditional Enhancement**: If brightness falls below the `LOW_LIGHT_THRESHOLD` (default: 100), the system applies **Contrast Limited Adaptive Histogram Equalization (CLAHE)** to the crop.
+    *   **Benefit**: Significantly improves PPE detection accuracy in shadowed areas or low-light CCTV footage without over-processing well-lit frames.
 
 ## 🛠️ Setup & Configuration
 
@@ -65,8 +70,9 @@ Edit `app/config.py` to choose your preferred architecture:
 PIPELINE_MODE = "VLM"  # "LEGACY" for pure YOLO, "VLM" for Hybrid
 VLM_PROMPTS = {
     "hardhat": ["a person wearing a hardhat", "a person without a helmet"],
-    "vest": ["a person wearing a safety vest", "a person in normal clothes"]
+    "vest": ["a person wearing a safety vest", "a person without a safety vest"]
 }
+LOW_LIGHT_THRESHOLD = 100 # Threshold (0-255) to trigger CLAHE enhancement
 ```
 
 ### Local Execution
