@@ -56,8 +56,8 @@ VLM_PROMPTS = {
              "a worker wearing regular clothes with no safety vest or high visibility clothing"
              ]
 }
-VLM_CONF_THRESHOLD = 0.5
-LOW_LIGHT_THRESHOLD = 100  # Brightness threshold (0-255) for applying CLAHE
+VLM_CONF_THRESHOLD = 0.6
+LOW_LIGHT_THRESHOLD = 100
 
 # Email Settings
 SMTP_SERVER = "smtp.gmail.com"
