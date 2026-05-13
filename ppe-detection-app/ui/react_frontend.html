@@ -181,7 +181,7 @@
             const canvasRef = React.useRef(null);
             const [cameraActive, setCameraActive] = useState(false);
             const [cameraOn, setCameraOn] = useState(false);
-            
+
             // Add continuous capture state for real-time processing loop
             const [continuousMode, setContinuousMode] = useState(false);
             const intervalRef = React.useRef(null);
@@ -272,45 +272,45 @@
 
             // Capture frames from video and send to API for real-time processing
             const captureAndSend = async () => {
-            if (!videoRef.current || !canvasRef.current) return;
+                if (!videoRef.current || !canvasRef.current) return;
 
-            const canvas = canvasRef.current;
-            const video = videoRef.current;
+                const canvas = canvasRef.current;
+                const video = videoRef.current;
 
-            const ctx = canvas.getContext("2d");
+                const ctx = canvas.getContext("2d");
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
 
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            const blob = await new Promise((resolve) =>
-                canvas.toBlob(resolve, "image/jpeg")
-            );
+                const blob = await new Promise((resolve) =>
+                    canvas.toBlob(resolve, "image/jpeg")
+                );
 
-            const formData = new FormData();
-            formData.append("file", blob, "frame.jpg");
+                const formData = new FormData();
+                formData.append("file", blob, "frame.jpg");
 
-            try {
-                const response = await fetch("http://localhost:8000/predict", {
-                    method: "POST",
-                    body: formData,
-                });
+                try {
+                    const response = await fetch("http://localhost:8000/predict", {
+                        method: "POST",
+                        body: formData,
+                    });
 
-                const data = await response.json();
-                console.log("Detection result:", data);
+                    const data = await response.json();
+                    console.log("Detection result:", data);
 
-                setResult(data); // show in UI
-            } catch (err) {
-                console.error("Error sending frame:", err);
-            }
-        };
+                    setResult(data); // show in UI
+                } catch (err) {
+                    console.error("Error sending frame:", err);
+                }
+            };
 
-            
+
             // ------------------End Camera & Real-Time -----------------
 
             // ------------------ Main UI Render -----------------
-            
+
             return (
                 <div className="container">
                     <h1>PPE Safety Dashboard</h1>
@@ -341,10 +341,10 @@
                         >
                             Camera
                         </div>
-                    </div>                    
+                    </div>
 
                     {/* Upload Box */}
-                    { activeTab === "upload" && (
+                    {activeTab === "upload" && (
                         <>
                             <div className="upload-box" onClick={() => document.getElementById('file-input').click()}>
                                 {file ? <strong>{file.name}</strong> : 'Click to Upload Image or Video'}
@@ -360,7 +360,7 @@
                     )}
 
                     {/* Camera UI */}
-                    { activeTab === "camera" && (
+                    {activeTab === "camera" && (
                         <>
                             <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
 
@@ -432,7 +432,7 @@
                                                 style={{ marginLeft: "10px" }}
                                             >
                                                 Stop Camera
-                                            </button>                                            
+                                            </button>
                                         </>
                                     )}
                                 </div>
@@ -440,9 +440,9 @@
                                 {/* Hidden canvas */}
                                 <canvas ref={canvasRef} style={{ display: "none" }} />
                             </div>
-                            </>
+                        </>
                     )}
-                    
+
 
                     {/* ------ RESULTS & STATUS ------ */}
 
@@ -455,13 +455,13 @@
                             {/* Static status for images, dynamic for videos (via video feed) */}
                             {result.type === 'image' && (
                                 <div className={`status ${result.violations_detected ? 'danger' : 'success'}`}>
-                                    {result.violations_detected ? '🚨 SAFETY VIOLATION DETECTED!' : '✅ ALL CLEAR: NO VIOLATIONS'}
+                                    {result.violations_detected ? 'SAFETY VIOLATION DETECTED!' : 'ALL CLEAR: NO VIOLATIONS'}
                                 </div>
                             )}
 
                             {result.type === 'video' && (
                                 <div className="status info">
-                                    🎥 LIVE REAL-TIME PROCESSING: REPORTING EVERY 5 FRAMES
+                                    LIVE REAL-TIME PROCESSING: REPORTING EVERY 5 FRAMES
                                 </div>
                             )}
 
@@ -486,13 +486,13 @@
                             {result.type === 'video' && result.stream_url && (
                                 <div>
                                     <h3>Real-Time Processing Stream</h3>
-                                    <img 
-                                        key={result.stream_url} 
-                                        src={result.stream_url} 
-                                        className="media-preview" 
-                                        alt="Processing Stream" 
+                                    <img
+                                        key={result.stream_url}
+                                        src={result.stream_url}
+                                        className="media-preview"
+                                        alt="Processing Stream"
                                     />
-                                    <p style={{fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginTop: '10px'}}>
+                                    <p style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'center', marginTop: '10px' }}>
                                         Safety status is drawn directly on the frames above in real-time.
                                     </p>
                                 </div>

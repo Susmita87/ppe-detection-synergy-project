@@ -785,7 +785,7 @@
                             </div>
                         )}
 
-                        {error && <div className="status danger">⚠️ {error}</div>}
+                        {error && <div className="status danger">Error: {error}</div>}
 
                         {/* Results */}
                         {result && !loading && (
@@ -799,7 +799,7 @@
                                 )}
 
                                 {result.type === "video" && (
-                                    <div className="status info">🎥 Live Processing</div>
+                                    <div className="status info">Live Processing</div>
                                 )}
 
                                 {/* Stats */}
