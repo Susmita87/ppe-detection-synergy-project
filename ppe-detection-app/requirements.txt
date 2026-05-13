@@ -14,3 +14,5 @@ ftfy
 regex
 tqdm
 mlflow
+sentencepiece
+protobuf

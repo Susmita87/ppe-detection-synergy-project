@@ -9,40 +9,44 @@ fi
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-echo "Checking dependencies..."
+echo "Checking dependencies (this may take a few seconds)..."
 # Only install if requirements.txt is newer than the venv or first run
-if [ requirements.txt -nt venv/.pip-lock ]; then
+if [ ! -f venv/.pip-lock ] || [ requirements.txt -nt venv/.pip-lock ]; then
+    pip install --upgrade pip
     pip install -r requirements.txt
     touch venv/.pip-lock
+    echo "Dependencies updated."
+else
+    echo "Dependencies are up to date."
 fi
 
 # Cleanup existing processes on ports 8000 and 3000
 echo "Clearing ports 8000 and 3000..."
-lsof -ti :8000,3000 | xargs kill -9 2>/dev/null
+lsof -ti :8000,3000 | xargs kill -9 2>/dev/null || true
 
 # Create temp uploads directory if not exists
 mkdir -p temp_uploads
 
-echo "Starting Backend (FastAPI) on port 8000..."
+echo "Starting Backend (FastAPI)..."
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
-echo "Starting Lite React Frontend on port 3000..."
-#  Use Python's built-in server to host the HTML
+echo "Starting Frontend (Nginx/Python)..."
 (cd ui && python3 -m http.server 3000) &
 REACT_PID=$!
 
 function cleanup {
     echo "Stopping services..."
-    kill $BACKEND_PID
-    kill $REACT_PID
+    kill $BACKEND_PID 2>/dev/null || true
+    kill $REACT_PID 2>/dev/null || true
+    exit 0
 }
 
-trap cleanup EXIT
+trap cleanup SIGINT SIGTERM EXIT
 
 echo "Services started!"
 echo "- API: http://localhost:8000"
-echo "- UI (React Lite): http://localhost:3000/react_frontend.html"
-echo "Press Ctrl+C to stop both."
+echo "- UI:  http://localhost:3000/react_frontend.html"
+echo "Press Ctrl+C only when you want to SHUT DOWN the app."
 
 wait

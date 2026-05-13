@@ -30,3 +30,7 @@ database/
 
 # Weights - Downloaded from MLflow
 **/weights/mlflow_downloads/
+
+# Large Model weights
+ppe-detection-app/app/models/
+ppe-detection-app/weights/mlflow_downloads/
