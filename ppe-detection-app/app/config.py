@@ -10,7 +10,7 @@ MAX_PERSON_BOX_SIZE = 0.8
 # Pipeline Configuration
 # "LEGACY": YOLO Stage 1 -> Crop -> YOLO Stage 2
 # "VLM": YOLO Stage 1 -> Crop -> VLM Validation
-PIPELINE_MODE = "LEGACY" 
+PIPELINE_MODE = "VLM" 
 
 #  Violation Rules Configuration
 # Direct violations (e.g. NO-Hardhat, NO-Vest)
