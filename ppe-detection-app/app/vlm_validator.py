@@ -1,7 +1,7 @@
 import torch
 from PIL import Image
 import numpy as np
-from app.config import VLM_MODEL_ID, VLM_PROMPTS, VLM_MARGIN_THRESHOLD, LOW_LIGHT_THRESHOLD, USE_CLAHE
+from app.config import VLM_MODEL_ID, VLM_PROMPTS, VLM_MARGIN_THRESHOLD, LOW_LIGHT_THRESHOLD, USE_GAMMA
 import cv2
 
 class VLMValidator:
@@ -10,20 +10,12 @@ class VLMValidator:
         self.processor = None
         self.device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
-    def _enhance_crop(self, crop_bgr):
-        """Blended CLAHE enhancement for low light scenarios"""
-        from app.config import CLAHE_BLEND_ALPHA
-        
-        # 1. Apply CLAHE
-        lab = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        enhanced = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
-        
-        # 2. Blend with original image to avoid artifacts
-        blended = cv2.addWeighted(enhanced, CLAHE_BLEND_ALPHA, crop_bgr, 1.0 - CLAHE_BLEND_ALPHA, 0)
-        return blended
+    def _apply_gamma_correction(self, image, gamma=1.5):
+        """Applies gamma correction to brighten the image"""
+        inv_gamma = 1.0 / gamma
+        table = np.array([((i / 255.0) ** inv_gamma) * 255
+                         for i in np.arange(0, 256)]).astype("uint8")
+        return cv2.LUT(image, table)
 
     def _load_model(self):
         if self.model is None:
@@ -41,12 +33,22 @@ class VLMValidator:
         
         # Preprocessing: Convert numpy array (OpenCV format BGR) to PIL Image (RGB)
         if isinstance(crop_image, np.ndarray):
-            if USE_CLAHE:
+            if USE_GAMMA:
                 gray = cv2.cvtColor(crop_image, cv2.COLOR_BGR2GRAY)
                 avg_brightness = np.mean(gray)
-                if avg_brightness < LOW_LIGHT_THRESHOLD:
-                    print(f"Low light detected ({avg_brightness:.1f} < {LOW_LIGHT_THRESHOLD}). Applying CLAHE...")
-                    crop_image = self._enhance_crop(crop_image)
+                
+                # Tiered Gamma Logic
+                # < 30: Gamma 1.8 - 2.2
+                # 30-50: Gamma 1.4 - 1.8
+                gamma_to_apply = None
+                if avg_brightness < 30:
+                    gamma_to_apply = 2.2  # Midpoint of 1.8 - 2.2
+                elif avg_brightness < LOW_LIGHT_THRESHOLD: # Threshold is 50
+                    gamma_to_apply = 1.8  # Midpoint of 1.4 - 1.8
+                
+                if gamma_to_apply:
+                    print(f"Low light detected ({avg_brightness:.1f} < {LOW_LIGHT_THRESHOLD}). Applying Tiered Gamma Correction (gamma={gamma_to_apply})...")
+                    crop_image = self._apply_gamma_correction(crop_image, gamma=gamma_to_apply)
             
             crop_image = Image.fromarray(crop_image[:, :, ::-1])
 

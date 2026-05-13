@@ -5,7 +5,7 @@ A production-grade Personal Protective Equipment (PPE) detection system featurin
 ## 🚀 Key Features
 
 -   **Hybrid Pipeline Architecture**: Toggle between high-speed Dual-YOLO and zero-shot **VLM (CLIP)** validation.
--   **VLM Validation**: Uses Vision-Language Models (OpenAI CLIP) for high-confidence semantic verification of PPE compliance.
+-   **VLM Validation**: Uses Vision-Language Models (OpenAI CLIP) for high-confidence semantic verification of PPE compliance using Logit Margin scoring.
 -   **Real-time Tracking**: Integrated **ByteTrack** for consistent frame-to-frame identity persistence.
 -   **Persistent Re-Identification (ReID)**: MobileNetV3-based embeddings to recognize individuals across multiple video sessions.
 -   **Database Persistence**: SQLite storage for person profiles, embedding history, and compliance logging.
@@ -29,8 +29,8 @@ graph TD
     subgraph "VLM Mode (Hybrid)"
         C -- "VLM" --> V1[YOLO: Fast Person Detection]
         V1 --> V2[Crop ROI]
-        V2 --> V_CLAHE[Adaptive CLAHE Enhancement - Conditional]
-        V_CLAHE --> V3[VLM Validator: CLIP Semantic Check]
+        V2 --> V_GAMMA[Tiered Gamma Correction - Conditional]
+        V_GAMMA --> V3[VLM Validator: CLIP Semantic Check]
     end
     
     L3 --> D[Rule Engine]
@@ -55,10 +55,12 @@ graph TD
 3.  **State Management**:
     *   **SQL Persistence**: Tracks `global_id` assignments and alert history.
     *   **Violation Buffering**: Implements a time-threshold logic to avoid spamming alerts for transient occlusions.
-4.  **Adaptive Image Enhancement (CLAHE)**:
-    *   **Low-Light Detection**: Automatically calculates average pixel intensity for every detected person.
-    *   **Conditional Enhancement**: If brightness falls below the `LOW_LIGHT_THRESHOLD` (default: 100), the system applies **Contrast Limited Adaptive Histogram Equalization (CLAHE)** to the crop.
-    *   **Benefit**: Significantly improves PPE detection accuracy in shadowed areas or low-light CCTV footage without over-processing well-lit frames.
+4.  **Tiered Gamma Correction (GAMMA)**:
+    *   **Adaptive Brightness Recovery**: Automatically calculates average pixel intensity for every detected person.
+    *   **Tiered Enhancement**: If brightness falls below the threshold, the system applies non-linear Gamma Correction based on the intensity:
+        *   **Deep Low-Light (Brightness < 30)**: Applies **Gamma 2.2** for aggressive detail recovery.
+        *   **Moderate Low-Light (Brightness 30–50)**: Applies **Gamma 1.8** for balanced enhancement.
+    *   **Benefit**: Significantly improves zero-shot VLM accuracy in shadowed areas or low-light CCTV footage by revealing textures without introducing the noise typical of linear amplification.
 5.  **Dynamic Model Management (MLflow)**:
     *   **Remote Artifacts**: Supports fetching latest model weights directly from MLflow/DagsHub artifact repositories.
     *   **Automatic Fallback**: If the remote download fails or the file is corrupted, the system automatically reverts to the last known stable local weight file (`weights/best-stage2.pt`).
@@ -76,8 +78,8 @@ VLM_PROMPTS = {
     "hardhat": ["a person wearing a hardhat", "a person without a helmet"],
     "vest": ["a person wearing a safety vest", "a person without a safety vest"]
 }
-USE_CLAHE = True           # Toggle to enable/disable adaptive CLAHE
-LOW_LIGHT_THRESHOLD = 50 # Threshold (0-255) to trigger CLAHE enhancement
+USE_GAMMA = True           # Toggle to enable/disable tiered enhancement
+LOW_LIGHT_THRESHOLD = 50   # Threshold (0-255) to trigger enhancement
 ```
 
 ### MLflow Model Configuration
@@ -102,13 +104,12 @@ ppe-detection-app/
 ├── app/
 │   ├── main.py          # FastAPI application & MJPEG Streamer
 │   ├── inference.py     # Main Logic: High-level pipeline controller
-│   ├── model.py         # NEW: Dynamic model loading engine (Local/MLflow)
+│   ├── model.py         # Dynamic model loading engine (Local/MLflow)
 │   ├── vlm_validator.py # CLIP/SigLIP-based VLM validation logic
 │   ├── extractor.py     # MobileNetV3 Feature Extraction
 │   ├── database.py      # SQLite ReID layer
 │   └── config.py        # Mode Toggle (LEGACY/VLM) & Prompts
 ├── weights/             # YOLO Model Weights
-│   └── mlflow_downloads/# Cache for models fetched from MLflow
 ├── static_results/      # Snapshots of detected violations
 └── run_local.sh         # Shell script to boot all services
 ```
@@ -124,6 +125,3 @@ ppe-detection-app/
 
 ---
 *Developed for the IITB-AIMLPractice-Project.*
-
-
-

@@ -10,7 +10,7 @@ MAX_PERSON_BOX_SIZE = 0.8
 # Pipeline Configuration
 # "LEGACY": YOLO Stage 1 -> Crop -> YOLO Stage 2
 # "VLM": YOLO Stage 1 -> Crop -> VLM Validation
-PIPELINE_MODE = "VLM" 
+PIPELINE_MODE = "LEGACY" 
 
 #  Violation Rules Configuration
 # Direct violations (e.g. NO-Hardhat, NO-Vest)
@@ -60,9 +60,8 @@ VLM_PROMPTS = {
 }
 
 VLM_MARGIN_THRESHOLD = 0.15 # Margin (average wearing - average not wearing)
-USE_CLAHE = True           # Global switch to enable/disable CLAHE enhancement
-LOW_LIGHT_THRESHOLD = 50   # Brightness threshold (0-255) for applying CLAHE
-CLAHE_BLEND_ALPHA = 0.5    # Blend ratio (0.0=Original, 1.0=Full CLAHE)
+USE_GAMMA = True           # Global switch to enable/disable Gamma enhancement
+LOW_LIGHT_THRESHOLD = 50   # Brightness threshold (0-255) for applying enhancement
 
 # Email Settings
 SMTP_SERVER = "smtp.gmail.com"
