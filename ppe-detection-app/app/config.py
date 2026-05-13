@@ -1,7 +1,11 @@
+import os
+
 #  Inference Settings
 CONF_THRESHOLD = 0.6
 CONF_IOU = 0.5
 CONF_IMGZ = 800
+INFERENCE_INTERVAL = 5
+MAX_PERSON_BOX_SIZE = 0.8
 
 # Pipeline Configuration
 # "LEGACY": YOLO Stage 1 -> Crop -> YOLO Stage 2
@@ -17,15 +21,6 @@ REQUIRED_GEAR_CLASSES = [0, 7]  # 0: Hardhat, 7: Safety Vest
 
 # Class ID for a person (matches CLASS_NAMES in inference.py)
 PERSON_CLASS_ID = 5
-
-# Inference frequency in video (every Nth frame)
-INFERENCE_INTERVAL = 5
-
-# Maximum size of a person box relative to image (0.0 to 1.0)
-MAX_PERSON_BOX_SIZE = 0.8
-
-
-import os
 
 # Base Settings
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,12 +38,31 @@ DB_PATH = os.path.join(BASE_DIR, "..", "database", "embeddings.db")
 
 # VLM Settings
 VLM_MODEL_ID = "openai/clip-vit-base-patch32"
+
+# Multi-Prompt Ensemble for better robustness
 VLM_PROMPTS = {
-    "hardhat": ["a person wearing a hardhat", "a person without a hardhat"],
-    "vest": ["a person wearing a safety vest", "a person without a safety vest"]
+    "hardhat": {
+        "wearing": [
+            "a person wearing a hardhat"
+        ],
+        "not_wearing": [
+            "a person without a hardhat"
+        ]
+    },
+    "vest": {
+        "wearing": [
+            "a person wearing a safety vest"
+        ],
+        "not_wearing": [
+            "a person without a safety vest"
+        ]
+    }
 }
-VLM_CONF_THRESHOLD = 0.6
-LOW_LIGHT_THRESHOLD = 100
+
+VLM_MARGIN_THRESHOLD = 0.15 # Margin (average wearing - average not wearing)
+USE_CLAHE = True           # Global switch to enable/disable CLAHE enhancement
+LOW_LIGHT_THRESHOLD = 50   # Brightness threshold (0-255) for applying CLAHE
+CLAHE_BLEND_ALPHA = 0.5    # Blend ratio (0.0=Original, 1.0=Full CLAHE)
 
 # Email Settings
 SMTP_SERVER = "smtp.gmail.com"

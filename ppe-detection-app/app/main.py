@@ -201,6 +201,12 @@ def gen_frames(video_path):
                                 track_to_global[tid] = gid
                     
                     det["global_id"] = track_to_global.get(tid)
+                    
+                    # Print confidence details in console
+                    vlm = det.get("vlm_scores", {})
+                    h_score = vlm.get("hardhat_confidence", 0)
+                    v_score = vlm.get("vest_confidence", 0)
+                    print(f"REID:{det['global_id']} [H:{h_score:+.2f}, V:{v_score:+.2f}]")
             
             if result["violations_detected"]:
                 current_time = time.time()
@@ -240,7 +246,10 @@ def gen_frames(video_path):
                             if det.get("track_id") == tid and det.get("violation") and det.get("class_id") == PERSON_CLASS_ID:
                                 gid = det.get("global_id", "Unknown")
                                 missing = det.get("missing_gear", ["General Violation"])
-                                violation_summary.append(f"- Person REID:{gid} (Track:{tid}) is missing: {', '.join(missing)}")
+                                vlm = det.get("vlm_scores", {})
+                                h_score = vlm.get("hardhat_confidence", 0)
+                                v_score = vlm.get("vest_confidence", 0)
+                                violation_summary.append(f"- Person REID:{gid} (Track:{tid}) is missing: {', '.join(missing)} [Scores: H={h_score:+.2f}, V={v_score:+.2f}]")
                                 # Update DB if we have a valid global_id
                                 if isinstance(gid, int):
                                     db.update_email_alert_status(gid)

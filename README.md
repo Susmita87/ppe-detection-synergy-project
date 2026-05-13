@@ -76,7 +76,8 @@ VLM_PROMPTS = {
     "hardhat": ["a person wearing a hardhat", "a person without a helmet"],
     "vest": ["a person wearing a safety vest", "a person without a safety vest"]
 }
-LOW_LIGHT_THRESHOLD = 100 # Threshold (0-255) to trigger CLAHE enhancement
+USE_CLAHE = True           # Toggle to enable/disable adaptive CLAHE
+LOW_LIGHT_THRESHOLD = 50 # Threshold (0-255) to trigger CLAHE enhancement
 ```
 
 ### MLflow Model Configuration

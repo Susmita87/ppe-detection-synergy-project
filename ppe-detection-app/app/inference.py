@@ -116,7 +116,7 @@ def predict(image, persist=False):
                     else:
                         det = {
                             "class_id": 2, "class_name": "NO-Hardhat",
-                            "confidence": round(1.0 - vlm_results["hardhat_confidence"], 3),
+                            "confidence": round(abs(vlm_results["hardhat_confidence"]), 3),
                             "bbox": [x1, y1, x2, y2], "violation": True,
                             "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
                         }
@@ -135,12 +135,14 @@ def predict(image, persist=False):
                     else:
                         det = {
                             "class_id": 4, "class_name": "NO-Safety Vest",
-                            "confidence": round(1.0 - vlm_results["vest_confidence"], 3),
+                            "confidence": round(abs(vlm_results["vest_confidence"]), 3),
                             "bbox": [x1, y1, x2, y2], "violation": True,
                             "timestamp": base_person_det["timestamp"], "track_id": base_person_det["track_id"]
                         }
-                        explicit_violations.append(det)
                     detections.append(det)
+                    
+                    # Store VLM margins for reporting
+                    base_person_det["vlm_scores"] = vlm_results
                     
                     people.append(base_person_det)
                     detections.append(base_person_det)
