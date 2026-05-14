@@ -10,8 +10,10 @@ class VLMValidator:
         self.processor = None
         self.device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
-    def _apply_gamma_correction(self, image, gamma=1.5):
+    def _apply_gamma_correction(self, image, gamma=0.0):
         """Applies gamma correction to brighten the image"""
+        if gamma <= 0:
+            return image
         inv_gamma = 1.0 / gamma
         table = np.array([((i / 255.0) ** inv_gamma) * 255
                          for i in np.arange(0, 256)]).astype("uint8")
